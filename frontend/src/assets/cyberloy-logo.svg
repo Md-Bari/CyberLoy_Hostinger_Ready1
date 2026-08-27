@@ -1,0 +1,49 @@
+<svg width="1400" height="360" viewBox="0 0 1400 360" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">CyberLoy logo</title>
+  <desc id="desc">Shield mark with CyberLoy wordmark.</desc>
+  <defs>
+    <linearGradient id="shieldGradient" x1="48" y1="28" x2="286" y2="312" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#06143D" />
+      <stop offset="0.56" stop-color="#0D2B8F" />
+      <stop offset="1" stop-color="#1A5EFF" />
+    </linearGradient>
+    <linearGradient id="wordmarkGradient" x1="356" y1="220" x2="1030" y2="220" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#06143D" />
+      <stop offset="0.6" stop-color="#0D2B8F" />
+      <stop offset="1" stop-color="#1A5EFF" />
+    </linearGradient>
+    <linearGradient id="innerGlow" x1="116" y1="72" x2="240" y2="266" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FBFDFF" />
+      <stop offset="1" stop-color="#D9E7FF" />
+    </linearGradient>
+  </defs>
+
+  <g transform="translate(18 12)">
+    <path d="M154 18L268 64V173C268 250 223 309 154 350C85 309 40 250 40 173V64L154 18Z" fill="url(#shieldGradient)"/>
+    <path d="M154 36L246 73V170C246 237 208 288 154 322C100 288 62 237 62 170V73L154 36Z" fill="#FFFFFF" opacity="0.985"/>
+    <path d="M154 49L230 80V166C230 224 199 269 154 297C109 269 78 224 78 166V80L154 49Z" fill="url(#shieldGradient)"/>
+
+    <path
+      d="M152.5 89C116.7 89 87.5 117.8 87.5 153.8C87.5 190.5 116.1 219 152.5 219H172.4C176.8 219 180.4 215.4 180.4 211V188.7C180.4 184.3 176.8 180.7 172.4 180.7H152.5C139 180.7 128.3 170 128.3 156.5C128.3 143 139 132.3 152.5 132.3H172.4C176.8 132.3 180.4 128.7 180.4 124.3V101.9C180.4 97.5 176.8 93.9 172.4 93.9H152.5V89Z"
+      fill="url(#innerGlow)"
+    />
+    <path
+      d="M194 94H205C209.4 94 213 97.6 213 102V203.5H243.5C247.9 203.5 251.5 207.1 251.5 211.5V212.5C251.5 216.9 247.9 220.5 243.5 220.5H194C189.6 220.5 186 216.9 186 212.5V102C186 97.6 189.6 94 194 94Z"
+      fill="url(#innerGlow)"
+    />
+  </g>
+
+  <g transform="translate(356 0)">
+    <text
+      x="0"
+      y="242"
+      fill="url(#wordmarkGradient)"
+      font-family="Sora, Inter, Arial, sans-serif"
+      font-size="104"
+      font-weight="800"
+      letter-spacing="-0.065em"
+    >
+      CYBERLOY
+    </text>
+  </g>
+</svg>

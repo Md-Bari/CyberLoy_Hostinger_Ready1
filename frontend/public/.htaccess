@@ -1,0 +1,9 @@
+# Hostinger / Apache configuration for a Vite + React single-page application
+RewriteEngine On
+
+# Do not rewrite existing files or directories
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+
+# Send all application routes to React
+RewriteRule ^ index.html [L]

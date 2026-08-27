@@ -1,0 +1,21 @@
+#!/usr/bin/env php
+<?php
+
+define('LARAVEL_START', microtime(true));
+
+// Register the Composer Autoloader...
+if (file_exists(__DIR__.'/vendor/autoload.php')) {
+    require __DIR__.'/vendor/autoload.php';
+} else {
+    echo "Vendor directory not found. Please run 'composer install' inside the backend folder first.\n";
+    exit(1);
+}
+
+// Bootstrap Laravel and handle the command...
+$app = require_once __DIR__.'/bootstrap/app.php';
+
+$status = $app->handleCommand(
+    new Symfony\Component\Console\Input\ArgvInput
+);
+
+exit($status);
