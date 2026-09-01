@@ -10,8 +10,12 @@ import CourseListPage from './pages/CourseListPage';
 import CourseDetailPage from './pages/CourseDetailPage';
 import LearnCoursePage from './pages/LearnCoursePage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
+import CourseBuilderPage from './pages/CourseBuilderPage';
 import CertificatesPage from './pages/CertificatesPage';
 import CertificateVerificationPage from './pages/CertificateVerificationPage';
+import AdminTaskBuilderPage from './pages/AdminTaskBuilderPage';
+import StudentTasksPage from './pages/StudentTasksPage';
+
 
 function ProtectedRoute({ children, adminOnly = false }) {
     const { user, loading, isAdmin } = useAuth();
@@ -68,6 +72,16 @@ function AppContent() {
                     }
                 />
 
+                {/* Student Assigned Project Tasks (ISO 27001) */}
+                <Route
+                    path="/my-tasks"
+                    element={
+                        <ProtectedRoute>
+                            <LMSLayout><StudentTasksPage /></LMSLayout>
+                        </ProtectedRoute>
+                    }
+                />
+
                 {/* Verified Certificates Management */}
                 <Route
                     path="/certificates"
@@ -88,11 +102,32 @@ function AppContent() {
                     }
                 />
 
+                {/* Course & Curriculum Builder */}
+                <Route
+                    path="/admin/builder"
+                    element={
+                        <ProtectedRoute adminOnly>
+                            <LMSLayout><CourseBuilderPage /></LMSLayout>
+                        </ProtectedRoute>
+                    }
+                />
+
+                {/* Admin Project Task Builder (ISO 27001) */}
+                <Route
+                    path="/admin/task-builder"
+                    element={
+                        <ProtectedRoute adminOnly>
+                            <LMSLayout><AdminTaskBuilderPage /></LMSLayout>
+                        </ProtectedRoute>
+                    }
+                />
+
                 <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
         </>
     );
 }
+
 
 export default function App() {
     return (

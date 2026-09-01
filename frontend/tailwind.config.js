@@ -16,6 +16,11 @@ module.exports = {
 			},
 		},
 		extend: {
+			fontFamily: {
+				sans: ['"Plus Jakarta Sans"', '"Inter"', 'sans-serif'],
+				mono: ['"JetBrains Mono"', 'monospace'],
+				display: ['"Plus Jakarta Sans"', 'sans-serif'],
+			},
 			colors: {
 				border: 'hsl(var(--border))',
 				input: 'hsl(var(--input))',

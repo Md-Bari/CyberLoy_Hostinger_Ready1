@@ -5,11 +5,11 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-use Laravel\Sanctum\HasApiTokens;
+use Tymon\JWTAuth\Contracts\JWTSubject;
 
-class User extends Authenticatable
+class User extends Authenticatable implements JWTSubject
 {
-    use HasApiTokens, HasFactory, Notifiable;
+    use HasFactory, Notifiable;
 
     protected $fillable = [
         'name',
@@ -30,6 +30,20 @@ class User extends Authenticatable
         ];
     }
 
+    // ─── JWTSubject interface ───────────────────────────────────────────────
+    public function getJWTIdentifier()
+    {
+        return $this->getKey();
+    }
+
+    public function getJWTCustomClaims(): array
+    {
+        return [
+            'role' => $this->role,
+        ];
+    }
+
+    // ─── Helpers ────────────────────────────────────────────────────────────
     public function isAdmin(): bool
     {
         return $this->role === 'admin';
@@ -54,4 +68,10 @@ class User extends Authenticatable
     {
         return $this->hasMany(Notification::class);
     }
+
+    public function assignedProjectPlans()
+    {
+        return $this->belongsToMany(ProjectPlan::class, 'project_assignments', 'user_id', 'project_plan_id');
+    }
 }
+

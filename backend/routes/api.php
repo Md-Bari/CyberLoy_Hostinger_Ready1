@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\VideoProgressController;
 use App\Http\Controllers\Api\CertificateController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\AdminController;
+use App\Http\Controllers\Api\ProjectTaskController;
 
 /*
 |--------------------------------------------------------------------------
@@ -18,6 +19,7 @@ use App\Http\Controllers\Api\AdminController;
 // Public Authentication & Course Catalog
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
+Route::post('/refresh', [AuthController::class, 'refresh']);
 Route::get('/courses', [CourseController::class, 'index']);
 Route::get('/courses/{id}', [CourseController::class, 'show']);
 
@@ -29,8 +31,8 @@ Route::get('/login-unauthorized', function () {
     return response()->json(['message' => 'Unauthenticated access. Token required.'], 401);
 })->name('login');
 
-// Protected Routes (Students & Admins)
-Route::middleware('auth:sanctum')->group(function () {
+// Protected Routes (Students & Admins) — JWT guard
+Route::middleware('auth:api')->group(function () {
     // Current User & Logout
     Route::get('/user', [AuthController::class, 'me']);
     Route::post('/logout', [AuthController::class, 'logout']);
@@ -42,6 +44,11 @@ Route::middleware('auth:sanctum')->group(function () {
     // Learning Classroom & Video Playback Tracking
     Route::get('/learn/{courseId}/{lessonId}', [CourseController::class, 'getLesson']);
     Route::post('/video-progress', [VideoProgressController::class, 'recordProgress']);
+
+    // Student Project & Task Management
+    Route::get('/project-plans', [ProjectTaskController::class, 'indexStudent']);
+    Route::get('/project-plans/{id}', [ProjectTaskController::class, 'showPlanStudent']);
+    Route::post('/project-plans/{planId}/tasks/{taskId}/progress', [ProjectTaskController::class, 'updateStudentProgress']);
 
     // Student Certificates & Notifications
     Route::get('/certificates/my-certificates', [CertificateController::class, 'myCertificates']);
@@ -66,6 +73,20 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/admin/sections/{sectionId}/lessons', [AdminController::class, 'addLesson']);
         Route::put('/admin/lessons/{id}', [AdminController::class, 'updateLesson']);
         Route::delete('/admin/lessons/{id}', [AdminController::class, 'deleteLesson']);
+
+        // Admin Project Plans & Task Builder Management
+        Route::get('/admin/users', [ProjectTaskController::class, 'getUsersList']);
+        Route::get('/admin/project-plans', [ProjectTaskController::class, 'indexAdmin']);
+
+        Route::get('/admin/project-plans/{id}', [ProjectTaskController::class, 'showPlanAdmin']);
+        Route::post('/admin/project-plans', [ProjectTaskController::class, 'storePlan']);
+        Route::put('/admin/project-plans/{id}', [ProjectTaskController::class, 'updatePlan']);
+        Route::delete('/admin/project-plans/{id}', [ProjectTaskController::class, 'deletePlan']);
+        Route::post('/admin/project-plans/{planId}/tasks', [ProjectTaskController::class, 'storeTask']);
+        Route::put('/admin/project-tasks/{taskId}', [ProjectTaskController::class, 'updateTask']);
+        Route::delete('/admin/project-tasks/{taskId}', [ProjectTaskController::class, 'deleteTask']);
+        Route::post('/admin/project-plans/{planId}/assign', [ProjectTaskController::class, 'assignUsers']);
+        Route::post('/admin/project-plans/{planId}/users/{userId}/progress', [ProjectTaskController::class, 'adminUpdateUserProgress']);
 
         // Certificate Issuance
         Route::post('/admin/issue-certificate', [AdminController::class, 'issueCertificate']);

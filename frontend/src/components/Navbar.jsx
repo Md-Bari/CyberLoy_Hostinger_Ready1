@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../lib/api';
-import { Bell, Award, BookOpen, LayoutDashboard, LogOut, User, Shield, CheckCircle } from 'lucide-react';
+import { Bell, Award, BookOpen, LayoutDashboard, LogOut, User, Shield, CheckCircle, CheckSquare } from 'lucide-react';
 
 export default function Navbar() {
     const { user, isAdmin, logout } = useAuth();
@@ -59,18 +59,36 @@ export default function Navbar() {
                     </Link>
 
                     {user && (
-                        <Link to="/certificates" className="flex items-center gap-1.5 text-sm text-slate-300 hover:text-cyan-400 transition font-medium">
-                            <Award className="w-4 h-4" />
-                            <span>My Certificates</span>
-                        </Link>
+                        <>
+                            <Link to="/my-tasks" className="flex items-center gap-1.5 text-sm text-slate-300 hover:text-cyan-400 transition font-medium">
+                                <CheckSquare className="w-4 h-4 text-cyan-400" />
+                                <span>My Tasks</span>
+                            </Link>
+
+                            <Link to="/certificates" className="flex items-center gap-1.5 text-sm text-slate-300 hover:text-cyan-400 transition font-medium">
+                                <Award className="w-4 h-4" />
+                                <span>My Certificates</span>
+                            </Link>
+                        </>
                     )}
 
                     {isAdmin && (
-                        <Link to="/admin" className="flex items-center gap-1.5 text-sm text-amber-400 hover:text-amber-300 transition font-medium bg-amber-950/40 border border-amber-800/60 px-3 py-1.5 rounded-lg">
-                            <Shield className="w-4 h-4 text-amber-400" />
-                            <span>Admin Portal</span>
-                        </Link>
+                        <>
+                            <Link to="/admin/task-builder" className="flex items-center gap-1.5 text-sm text-cyan-400 hover:text-cyan-300 transition font-semibold bg-cyan-950/40 border border-cyan-800/60 px-3 py-1.5 rounded-lg">
+                                <CheckSquare className="w-4 h-4 text-cyan-400" />
+                                <span>Task Builder</span>
+                            </Link>
+                            <Link to="/admin/builder" className="flex items-center gap-1.5 text-sm text-slate-300 hover:text-cyan-300 transition font-medium bg-slate-800/60 border border-slate-700/60 px-3 py-1.5 rounded-lg">
+                                <BookOpen className="w-4 h-4 text-cyan-400" />
+                                <span>Course Builder</span>
+                            </Link>
+                            <Link to="/admin" className="flex items-center gap-1.5 text-sm text-amber-400 hover:text-amber-300 transition font-medium bg-amber-950/40 border border-amber-800/60 px-3 py-1.5 rounded-lg">
+                                <Shield className="w-4 h-4 text-amber-400" />
+                                <span>Admin Portal</span>
+                            </Link>
+                        </>
                     )}
+
 
                     {user ? (
                         <div className="flex items-center gap-4 border-l border-slate-800 pl-6">
@@ -132,20 +150,20 @@ export default function Navbar() {
                             </div>
 
                             {/* User Profile / Badge */}
-                            <div className="flex items-center gap-2">
-                                <div className="w-8 h-8 rounded-full bg-cyan-950 border border-cyan-500/50 text-cyan-300 font-bold flex items-center justify-center text-xs">
+                            <div className="flex items-center gap-3 bg-slate-950/60 border border-slate-800 rounded-full py-1 px-3">
+                                <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-cyan-600 to-blue-600 text-white font-bold flex items-center justify-center text-xs shadow-md shrink-0">
                                     {user.name?.charAt(0).toUpperCase()}
                                 </div>
-                                <div className="hidden sm:block text-left">
-                                    <div className="text-xs font-semibold text-slate-200">{user.name}</div>
-                                    <div className="text-[10px] text-cyan-400 capitalize font-mono">{user.role}</div>
+                                <div className="hidden sm:flex flex-col text-left justify-center">
+                                    <span className="text-xs font-bold text-slate-100 leading-tight truncate max-w-[140px]">{user.name}</span>
+                                    <span className="text-[10px] text-cyan-400 capitalize font-medium leading-none mt-0.5">{user.role}</span>
                                 </div>
                                 <button
                                     onClick={handleLogout}
                                     title="Logout"
-                                    className="p-1.5 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-950/30 transition ml-1"
+                                    className="p-1 rounded-full text-slate-400 hover:text-red-400 hover:bg-red-950/40 transition ml-0.5"
                                 >
-                                    <LogOut className="w-4 h-4" />
+                                    <LogOut className="w-3.5 h-3.5" />
                                 </button>
                             </div>
                         </div>

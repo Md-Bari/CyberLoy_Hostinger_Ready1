@@ -14,22 +14,13 @@ use App\Models\Notification;
 use App\Models\AuditLog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
-use Laravel\Sanctum\PersonalAccessToken;
+
 
 class CourseController extends Controller
 {
     protected function getAuthenticatedUser(Request $request)
     {
-        $user = $request->user();
-        if ($user) return $user;
-
-        $bearerToken = $request->bearerToken();
-        if ($bearerToken) {
-            $token = PersonalAccessToken::findToken($bearerToken);
-            if ($token) return $token->tokenable;
-        }
-
-        return null;
+        return auth('api')->user() ?? $request->user();
     }
 
     public function index(Request $request)

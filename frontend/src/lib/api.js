@@ -84,6 +84,12 @@ export const api = {
         if (user) setUserData(user);
         return user;
     },
+    refreshToken: async () => {
+        const res = await request('/refresh', { method: 'POST' });
+        if (res.token) setAuthToken(res.token);
+        if (res.user) setUserData(res.user);
+        return res;
+    },
 
     // Courses & Payment
     getCourses: (params = {}) => {
@@ -120,6 +126,23 @@ export const api = {
     deleteSection: (sectionId) => request(`/admin/sections/${sectionId}`, { method: 'DELETE' }),
     addLesson: (sectionId, lessonData) => request(`/admin/sections/${sectionId}/lessons`, { method: 'POST', body: JSON.stringify(lessonData) }),
     updateLesson: (lessonId, lessonData) => request(`/admin/lessons/${lessonId}`, { method: 'PUT', body: JSON.stringify(lessonData) }),
-    deleteLesson: (lessonId) => request(`/admin/lessons/${lessonId}`, { method: 'DELETE' }),
-    issueCertificate: (data) => request('/admin/issue-certificate', { method: 'POST', body: JSON.stringify(data) }),
+    // Project Plans & Tasks (ISO 27001 / Task Builder)
+    getStudentProjectPlans: () => request('/project-plans'),
+    getStudentProjectPlanDetails: (id) => request(`/project-plans/${id}`),
+    updateTaskProgress: (planId, taskId, data) => request(`/project-plans/${planId}/tasks/${taskId}/progress`, { method: 'POST', body: JSON.stringify(data) }),
+
+    // Admin Project Plans & Task Builder
+    getAdminUsersList: () => request('/admin/users'),
+    getAdminProjectPlans: () => request('/admin/project-plans'),
+
+    getAdminProjectPlanDetails: (id) => request(`/admin/project-plans/${id}`),
+    createProjectPlan: (data) => request('/admin/project-plans', { method: 'POST', body: JSON.stringify(data) }),
+    updateProjectPlan: (id, data) => request(`/admin/project-plans/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    deleteProjectPlan: (id) => request(`/admin/project-plans/${id}`, { method: 'DELETE' }),
+    addProjectTask: (planId, data) => request(`/admin/project-plans/${planId}/tasks`, { method: 'POST', body: JSON.stringify(data) }),
+    updateProjectTask: (taskId, data) => request(`/admin/project-tasks/${taskId}`, { method: 'PUT', body: JSON.stringify(data) }),
+    deleteProjectTask: (taskId) => request(`/admin/project-tasks/${taskId}`, { method: 'DELETE' }),
+    assignUsersToProjectPlan: (planId, userIds) => request(`/admin/project-plans/${planId}/assign`, { method: 'POST', body: JSON.stringify({ user_ids: userIds }) }),
+    adminUpdateUserTaskProgress: (planId, userId, data) => request(`/admin/project-plans/${planId}/users/${userId}/progress`, { method: 'POST', body: JSON.stringify(data) }),
 };
+

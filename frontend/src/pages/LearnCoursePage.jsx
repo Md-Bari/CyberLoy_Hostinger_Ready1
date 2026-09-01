@@ -73,7 +73,9 @@ export default function LearnCoursePage() {
     };
 
     const handleProgressUpdate = (progressData) => {
-        if (progressData.course_progress_percentage !== undefined) {
+        if (progressData.lesson_completed) {
+            handleLessonCompleted(progressData);
+        } else if (progressData.course_progress_percentage !== undefined) {
             setData((prev) => {
                 if (!prev) return prev;
                 return {
@@ -87,6 +89,7 @@ export default function LearnCoursePage() {
             });
         }
     };
+
 
     if (loading && !data) {
         return (
@@ -181,6 +184,7 @@ export default function LearnCoursePage() {
                     <YouTubePlayer
                         videoId={lesson.youtube_video_id || 'inWWhr5tnEA'}
                         lessonId={lesson.id}
+                        lessonDuration={lesson.duration_seconds || 0}
                         initialProgress={lesson.watch_percentage || 0}
                         isCompleted={lesson.is_completed}
                         requiredPercentage={lesson.required_watch_percentage || 100}

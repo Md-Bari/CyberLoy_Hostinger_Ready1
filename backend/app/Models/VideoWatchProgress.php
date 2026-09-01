@@ -18,6 +18,7 @@ class VideoWatchProgress extends Model
         'current_position',
         'duration',
         'watch_percentage',
+        'watched_seconds',
         'watched_intervals',
         'last_heartbeat',
         'completed',
@@ -26,12 +27,13 @@ class VideoWatchProgress extends Model
 
     protected $casts = [
         'watched_intervals' => 'array',
-        'completed' => 'boolean',
-        'current_position' => 'integer',
-        'duration' => 'integer',
-        'watch_percentage' => 'integer',
-        'last_heartbeat' => 'datetime',
-        'completed_at' => 'datetime',
+        'completed'         => 'boolean',
+        'current_position'  => 'integer',
+        'duration'          => 'integer',
+        'watch_percentage'  => 'integer',
+        'watched_seconds'   => 'integer',
+        'last_heartbeat'    => 'datetime',
+        'completed_at'      => 'datetime',
     ];
 
     public function user()
