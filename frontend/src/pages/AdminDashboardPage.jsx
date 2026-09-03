@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
+import PortalSidebar from '../components/PortalSidebar';
 import {
     Shield, Users, BookOpen, Award, CheckCircle, AlertCircle, DollarSign,
     CreditCard, Plus, Lock, Check, Trash2, Eye, Play, Sparkles, X, ChevronRight,
-    Search, Filter, RefreshCw, Edit3, Settings, Save, ArrowUpRight, CheckSquare
+    Search, Filter, RefreshCw, Edit3, Settings, Save, ArrowUpRight, CheckSquare,
+    TrendingUp, BarChart2, ChevronLeft, UserCheck, CheckCircle2, ShieldAlert, PhoneCall, Mail
 } from 'lucide-react';
+
 
 
 export default function AdminDashboardPage() {
@@ -15,14 +18,22 @@ export default function AdminDashboardPage() {
     const [courses, setCourses] = useState([]);
     const [payments, setPayments] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [activeTab, setActiveTab] = useState('students'); // 'students' | 'builder' | 'payments' | 'new_course'
+    const [activeTab, setActiveTab] = useState('analytics'); // 'analytics' | 'users' | 'support' | 'builder' | 'payments' | 'new_course'
     const [issuing, setIssuing] = useState(null);
     const [message, setMessage] = useState('');
     const [selectedStudentDetail, setSelectedStudentDetail] = useState(null);
     const [loadingDetail, setLoadingDetail] = useState(false);
 
-    // Search / Filter state
+    // Emergency Support State
+    const [emergencyTickets, setEmergencyTickets] = useState([]);
+    const [loadingTickets, setLoadingTickets] = useState(false);
+
+    // Search & Pagination state for Users Directory
     const [searchTerm, setSearchTerm] = useState('');
+    const [currentPage, setCurrentPage] = useState(1);
+    const usersPerPage = 5;
+
+
 
     // Course Builder State
     const [selectedCourseForBuilder, setSelectedCourseForBuilder] = useState(null);
@@ -72,19 +83,45 @@ export default function AdminDashboardPage() {
         loadAdminData();
     }, []);
 
+    const fetchEmergencyTickets = async () => {
+        setLoadingTickets(true);
+        try {
+            const data = await api.getEmergencySupportTickets();
+            setEmergencyTickets(data || []);
+        } catch (err) {
+            console.error('Failed to load emergency tickets:', err);
+        } finally {
+            setLoadingTickets(false);
+        }
+    };
+
+    const handleUpdateTicketStatus = async (id, status) => {
+        try {
+            await api.updateEmergencySupportStatus(id, status);
+            setEmergencyTickets(prev => prev.map(t => t.id === id ? { ...t, status } : t));
+            setMessage(`Ticket #${id} status updated to ${status}.`);
+            setTimeout(() => setMessage(''), 3000);
+        } catch (err) {
+            console.error(err);
+        }
+    };
+
     const loadAdminData = async () => {
         setLoading(true);
         try {
-            const [statsData, activitiesData, coursesData, paymentsData] = await Promise.all([
+            const [statsData, activitiesData, coursesData, paymentsData, ticketsData] = await Promise.all([
                 api.getAdminStats(),
                 api.getUserActivities(),
                 api.getCourses(),
                 api.getAdminPayments().catch(() => []),
+                api.getEmergencySupportTickets().catch(() => []),
             ]);
             setStats(statsData);
             setActivities(activitiesData || []);
             setCourses(coursesData || []);
             setPayments(paymentsData || []);
+            setEmergencyTickets(ticketsData || []);
+
 
             // Refresh builder course state if selected
             if (selectedCourseForBuilder) {
@@ -375,9 +412,11 @@ export default function AdminDashboardPage() {
     }
 
     return (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+        <div className="p-6 lg:p-8 space-y-8 max-w-7xl mx-auto">
             {/* Admin Command Center Header Banner */}
-            <div className="relative overflow-hidden bg-gradient-to-r from-slate-900 via-slate-900/90 to-cyan-950/40 border border-slate-800/80 rounded-3xl p-8 shadow-2xl backdrop-blur-xl">
+
+                <div className="relative overflow-hidden bg-gradient-to-r from-slate-900 via-slate-900/90 to-cyan-950/40 border border-slate-800/80 rounded-3xl p-8 shadow-2xl backdrop-blur-xl">
+
                 <div className="absolute top-0 right-0 -mt-8 -mr-8 w-64 h-64 rounded-full bg-cyan-500/10 blur-3xl pointer-events-none" />
 
                 <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
@@ -518,187 +557,395 @@ export default function AdminDashboardPage() {
                 </div>
             </div>
 
-            {/* Segmented Control Navigation Tabs */}
-            <div className="bg-slate-900/90 border border-slate-800 p-1.5 rounded-2xl flex flex-wrap items-center justify-between gap-3 shadow-lg">
-                <div className="flex flex-wrap gap-1.5">
-                    <button
-                        onClick={() => setActiveTab('students')}
-                        className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
-                            activeTab === 'students'
-                                ? 'bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/20'
-                                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
-                        }`}
-                    >
-                        <Users className="w-4 h-4" />
-                        <span>Student Progress & Monitoring</span>
-                    </button>
-
-                    <Link
-                        to="/admin/builder"
-                        className="px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 text-slate-400 hover:text-slate-200 hover:bg-slate-800/60"
-                    >
-                        <BookOpen className="w-4 h-4 text-cyan-400" />
-                        <span>Curriculum & Video Builder</span>
-                    </Link>
-
-                    <button
-                        onClick={() => setActiveTab('payments')}
-                        className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
-                            activeTab === 'payments'
-                                ? 'bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/20'
-                                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
-                        }`}
-                    >
-                        <CreditCard className="w-4 h-4" />
-                        <span>Payment Transactions ({payments.length})</span>
-                    </button>
-
-                    <button
-                        onClick={() => setActiveTab('new_course')}
-                        className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
-                            activeTab === 'new_course'
-                                ? 'bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/20'
-                                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
-                        }`}
-                    >
-                        <Plus className="w-4 h-4" />
-                        <span>Publish Course</span>
-                    </button>
-                </div>
-
-                {/* Search Bar for Quick Filtering */}
-                {(activeTab === 'students' || activeTab === 'payments') && (
-                    <div className="relative w-full sm:w-64 px-2 sm:px-0">
-                        <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                        <input
-                            type="text"
-                            placeholder="Filter records..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500/50"
-                        />
-                    </div>
-                )}
-            </div>
-
-            {/* TAB 1: Student Monitoring & Watch History */}
-            {activeTab === 'students' && (
-                <div className="space-y-6">
-                    {filteredActivities.length === 0 ? (
-                        <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-12 text-center text-slate-500 text-sm">
-                            {searchTerm ? 'No student records match your search filter.' : 'No registered students found.'}
-                        </div>
-                    ) : (
-                        filteredActivities.map((student) => (
-                            <div
-                                key={student.user_id}
-                                className="bg-slate-900/90 border border-slate-800/90 rounded-3xl p-6 shadow-xl space-y-5 hover:border-slate-700/80 transition"
-                            >
-                                <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-800/80 gap-3">
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-cyan-600 to-blue-600 text-white font-bold flex items-center justify-center text-sm shadow-md">
-                                            {student.user_name?.charAt(0).toUpperCase()}
-                                        </div>
-                                        <div>
-                                            <h3 className="text-base font-bold text-white flex items-center gap-2">
-                                                <span>{student.user_name}</span>
-                                            </h3>
-                                            <div className="text-xs text-slate-400 flex items-center gap-2 mt-0.5">
-                                                <span className="text-cyan-400 font-medium">{student.user_email}</span>
-                                                <span>•</span>
-                                                <span className="text-slate-500">Joined: {student.joined_at}</span>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div className="flex items-center gap-3">
-                                        <button
-                                            onClick={() => handleViewStudentDetail(student.user_id)}
-                                            className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-cyan-400 text-xs font-semibold flex items-center gap-2 transition border border-slate-700/80"
-                                        >
-                                            <Eye className="w-4 h-4 text-cyan-400" />
-                                            <span>Inspect Watch Details</span>
-                                        </button>
-                                    </div>
+            {/* VIEW 1: Analytics & Charts Overview (Default Dashboard Tab) */}
+            {(activeTab === 'analytics' || !activeTab) && (
+                <div className="space-y-8">
+                    {/* Analytics Section 1: Visual Charts Grid */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        {/* Chart Card 1: Monthly Growth Trends */}
+                        <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-4">
+                            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+                                <div>
+                                    <h3 className="text-base font-bold text-white flex items-center gap-2">
+                                        <TrendingUp className="w-5 h-5 text-cyan-400" />
+                                        <span>Monthly Revenue & Growth Analytics</span>
+                                    </h3>
+                                    <p className="text-xs text-slate-400 mt-0.5 font-mono">Real-time revenue progression ($ USD)</p>
                                 </div>
-
-                                <div className="space-y-3">
-                                    {student.courses?.length === 0 ? (
-                                        <p className="text-xs text-slate-500 italic p-3">No course enrollments yet.</p>
-                                    ) : (
-                                        student.courses.map((course) => (
-                                            <div
-                                                key={course.course_id}
-                                                className="bg-slate-950/70 border border-slate-800/80 rounded-2xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:border-slate-700/60 transition"
-                                            >
-                                                <div className="flex-1 space-y-2">
-                                                    <div className="flex items-center gap-2 flex-wrap">
-                                                        <h4 className="font-bold text-sm text-slate-100">{course.course_title}</h4>
-                                                        {course.payment_status === 'paid' ? (
-                                                            <span className="text-[10px] font-bold text-emerald-400 bg-emerald-950/80 px-2.5 py-0.5 rounded-full border border-emerald-800/80">
-                                                                Paid (${course.payment_amount || '49.00'})
-                                                            </span>
-                                                        ) : (
-                                                            <span className="text-[10px] font-bold text-amber-400 bg-amber-950/80 px-2.5 py-0.5 rounded-full border border-amber-800/80">
-                                                                Unpaid Access
-                                                            </span>
-                                                        )}
-                                                    </div>
-
-                                                    <div className="flex items-center gap-4 max-w-xl">
-                                                        <div className="flex-1 bg-slate-900 rounded-full h-2.5 overflow-hidden border border-slate-800">
-                                                            <div
-                                                                className="bg-gradient-to-r from-cyan-500 to-blue-500 h-full rounded-full transition-all duration-500"
-                                                                style={{ width: `${course.progress_percentage}%` }}
-                                                            />
-                                                        </div>
-                                                        <span className="text-xs font-bold text-cyan-400 shrink-0 font-mono">
-                                                            {course.progress_percentage}% ({course.completed_lessons}/{course.total_lessons} lessons)
-                                                        </span>
-                                                    </div>
-                                                </div>
-
-                                                <div className="shrink-0 flex items-center gap-3">
-                                                    {course.has_certificate ? (
-                                                        <span className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-emerald-950/80 border border-emerald-800 text-emerald-400 text-xs font-bold font-mono">
-                                                            <CheckCircle className="w-4 h-4 text-emerald-400" />
-                                                            <span>Issued ({course.certificate_code})</span>
-                                                        </span>
-                                                    ) : (
-                                                        <button
-                                                            disabled={issuing === `${student.user_id}-${course.course_id}`}
-                                                            onClick={() =>
-                                                                handleIssueCertificate(
-                                                                    student.user_id,
-                                                                    course.course_id,
-                                                                    student.user_name,
-                                                                    course.course_title
-                                                                )
-                                                            }
-                                                            className={`px-4 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 transition-all shadow-md ${
-                                                                course.is_ready_for_certificate
-                                                                    ? 'bg-amber-400 hover:bg-amber-300 text-slate-950 animate-pulse shadow-amber-400/20'
-                                                                    : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700'
-                                                            }`}
-                                                        >
-                                                            <Award className="w-4 h-4 text-amber-500" />
-                                                            <span>
-                                                                {issuing === `${student.user_id}-${course.course_id}`
-                                                                    ? 'Issuing...'
-                                                                    : 'Issue Verified Certificate'}
-                                                            </span>
-                                                        </button>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        ))
-                                    )}
-                                </div>
+                                <span className="px-2.5 py-1 rounded-full bg-cyan-950 text-cyan-400 border border-cyan-800 text-[10px] font-mono font-bold uppercase">
+                                    Live Audit
+                                </span>
                             </div>
-                        ))
-                    )}
+
+                            {/* Bar Chart Visualization (100% Database Driven) */}
+                            <div className="h-56 flex items-end justify-between gap-3 pt-6 px-2 border-b border-slate-800/80 pb-3">
+                                {(stats?.monthly_trends || []).map((m) => {
+                                    const maxRev = Math.max(...(stats?.monthly_trends || []).map(t => t.revenue), 100);
+                                    const heightPct = m.revenue > 0 ? Math.min(100, Math.max(15, (m.revenue / maxRev) * 100)) : 10;
+                                    return (
+                                        <div key={m.month} className="flex-1 flex flex-col items-center gap-2 group">
+                                            <span className="text-[10px] font-mono text-cyan-400 font-bold opacity-0 group-hover:opacity-100 transition">
+                                                ${m.revenue}
+                                            </span>
+                                            <div className="w-full max-w-[36px] bg-slate-950 rounded-xl overflow-hidden h-36 flex items-end p-1 border border-slate-800">
+                                                <div
+                                                    className="w-full bg-gradient-to-t from-cyan-600 via-blue-500 to-emerald-400 rounded-lg transition-all duration-700 group-hover:brightness-125"
+                                                    style={{ height: `${heightPct}%` }}
+                                                />
+                                            </div>
+                                            <span className="text-xs font-mono text-slate-400 font-bold">{m.month}</span>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+
+                            <div className="flex items-center justify-between text-xs font-mono text-slate-400 pt-1">
+                                <div className="flex items-center gap-2">
+                                    <div className="w-3 h-3 rounded-full bg-cyan-400" />
+                                    <span>Verified Revenue</span>
+                                </div>
+                                <span className="text-emerald-400 font-bold">${Number(stats?.total_revenue || 0).toFixed(2)} Total</span>
+                            </div>
+                        </div>
+
+                        {/* Chart Card 2: Course Completion Rates */}
+                        <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-4">
+                            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+                                <div>
+                                    <h3 className="text-base font-bold text-white flex items-center gap-2">
+                                        <BarChart2 className="w-5 h-5 text-emerald-400" />
+                                        <span>Course Completion & Enrollment Breakdown</span>
+                                    </h3>
+                                    <p className="text-xs text-slate-400 mt-0.5 font-mono">Performance across published curricula</p>
+                                </div>
+                                <span className="px-2.5 py-1 rounded-full bg-emerald-950 text-emerald-400 border border-emerald-800 text-[10px] font-mono font-bold">
+                                    {courses.length} Courses
+                                </span>
+                            </div>
+
+                            <div className="space-y-4 pt-2 max-h-60 overflow-y-auto pr-1">
+                                {courses.map((c) => {
+                                    const enrCount = c.enrollments_count || 0;
+                                    const compCount = c.completions_count || 0;
+                                    const rate = enrCount > 0 ? Math.round((compCount / enrCount) * 100) : 0;
+                                    return (
+                                        <div key={c.id} className="bg-slate-950 border border-slate-800 rounded-2xl p-3.5 space-y-2">
+                                            <div className="flex items-center justify-between text-xs">
+                                                <span className="font-bold text-white truncate max-w-[220px]">{c.title}</span>
+                                                <span className="font-mono text-cyan-400 font-bold">{rate}% Completion</span>
+                                            </div>
+                                            <div className="w-full bg-slate-900 rounded-full h-2 overflow-hidden border border-slate-800">
+                                                <div
+                                                    className="bg-gradient-to-r from-emerald-500 to-cyan-400 h-full rounded-full transition-all duration-500"
+                                                    style={{ width: `${rate}%` }}
+                                                />
+                                            </div>
+                                            <div className="flex items-center justify-between text-[10px] font-mono text-slate-400">
+                                                <span>{enrCount} Enrolled Students</span>
+                                                <span className="text-emerald-400 font-bold">{compCount} Finished (100%)</span>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+
+                    </div>
+
+                    {/* Analytics Section 2: Shortcut Banner to Paginated Users Management Page */}
+                    <div className="bg-gradient-to-r from-slate-900 via-cyan-950/40 to-slate-900 border border-cyan-900/50 rounded-3xl p-6 sm:p-8 shadow-2xl flex flex-col md:flex-row items-center justify-between gap-6">
+                        <div className="space-y-2">
+                            <div className="flex items-center gap-2">
+                                <Users className="w-6 h-6 text-cyan-400" />
+                                <h3 className="text-xl font-bold text-white">Student & User Management Portal</h3>
+                            </div>
+                            <p className="text-xs text-slate-300 max-w-2xl leading-relaxed">
+                                Access the paginated user directory to search students, inspect individual watch logs, and issue 100% completion certificates.
+                            </p>
+                        </div>
+
+                        <button
+                            onClick={() => setActiveTab('users')}
+                            className="px-6 py-3.5 rounded-2xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs font-mono flex items-center gap-2 shrink-0 transition-all shadow-xl shadow-cyan-500/20 hover:scale-105"
+                        >
+                            <span>Manage All Users ({activities.length} Accounts)</span>
+                            <ChevronRight className="w-4 h-4" />
+                        </button>
+                    </div>
                 </div>
             )}
+
+            {/* VIEW 2: Dedicated Paginated Users Directory Page */}
+            {(activeTab === 'users' || activeTab === 'students') && (
+                <div className="space-y-6">
+                    {/* Header Bar with Search Input */}
+                    <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-2xl">
+                        <div>
+                            <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                                <Users className="w-5 h-5 text-cyan-400" /> Users & Students Directory
+                            </h3>
+                            <p className="text-xs text-slate-400 mt-1">Search, filter, and view detailed progress profiles for registered students.</p>
+                        </div>
+
+                        {/* Search Input */}
+                        <div className="relative w-full sm:w-72">
+                            <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                            <input
+                                type="text"
+                                placeholder="Search by student name or email..."
+                                value={searchTerm}
+                                onChange={(e) => {
+                                    setSearchTerm(e.target.value);
+                                    setCurrentPage(1);
+                                }}
+                                className="w-full bg-slate-950 border border-slate-800 rounded-2xl pl-10 pr-4 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 font-mono"
+                            />
+                        </div>
+                    </div>
+
+                    {/* Paginated Users Data Table */}
+                    <div className="bg-slate-900/90 border border-slate-800 rounded-3xl overflow-hidden shadow-2xl">
+                        {(() => {
+                            const filtered = activities.filter((u) =>
+                                u.user_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                u.user_email?.toLowerCase().includes(searchTerm.toLowerCase())
+                            );
+
+                            const totalPages = Math.ceil(filtered.length / usersPerPage) || 1;
+                            const startIndex = (currentPage - 1) * usersPerPage;
+                            const paginatedUsers = filtered.slice(startIndex, startIndex + usersPerPage);
+
+                            if (filtered.length === 0) {
+                                return (
+                                    <div className="p-12 text-center text-slate-500 text-xs font-mono">
+                                        No users found matching "{searchTerm}".
+                                    </div>
+                                );
+                            }
+
+                            return (
+                                <>
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full text-left text-xs">
+                                            <thead className="bg-slate-950 text-slate-400 font-mono text-[11px] uppercase tracking-wider border-b border-slate-800">
+                                                <tr>
+                                                    <th className="p-4 w-16"># ID</th>
+                                                    <th className="p-4">Student Profile</th>
+                                                    <th className="p-4">Joined Date</th>
+                                                    <th className="p-4 text-center">Courses Enrolled</th>
+                                                    <th className="p-4 text-center">100% Finished</th>
+                                                    <th className="p-4 text-right">Action</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-slate-800/80 font-sans">
+                                                {paginatedUsers.map((student) => {
+                                                    const finishedCount = student.courses?.filter(c => c.progress_percentage >= 100).length || 0;
+                                                    return (
+                                                        <tr key={student.user_id} className="hover:bg-slate-800/40 transition">
+                                                            <td className="p-4 font-mono text-slate-500 font-bold">
+                                                                #{student.user_id}
+                                                            </td>
+                                                            <td className="p-4">
+                                                                <div className="flex items-center gap-3">
+                                                                    <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-cyan-600 to-blue-600 text-white font-bold flex items-center justify-center text-xs shadow">
+                                                                        {student.user_name?.charAt(0).toUpperCase()}
+                                                                    </div>
+                                                                    <div>
+                                                                        <span className="font-bold text-white block">{student.user_name}</span>
+                                                                        <span className="text-[11px] text-cyan-400 font-mono block">{student.user_email}</span>
+                                                                    </div>
+                                                                </div>
+                                                            </td>
+                                                            <td className="p-4 font-mono text-slate-400 text-xs">
+                                                                {student.joined_at}
+                                                            </td>
+                                                            <td className="p-4 text-center font-mono font-bold text-slate-200">
+                                                                {student.courses?.length || 0} Courses
+                                                            </td>
+                                                            <td className="p-4 text-center font-mono">
+                                                                {finishedCount > 0 ? (
+                                                                    <span className="px-2.5 py-1 rounded-full bg-emerald-950 text-emerald-400 border border-emerald-800 font-bold text-[10px]">
+                                                                        ✓ {finishedCount} Finished
+                                                                    </span>
+                                                                ) : (
+                                                                    <span className="text-slate-500 text-xs">-</span>
+                                                                )}
+                                                            </td>
+                                                            <td className="p-4 text-right">
+                                                                <button
+                                                                    onClick={() => handleViewStudentDetail(student.user_id)}
+                                                                    className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-cyan-400 hover:text-white font-bold text-xs transition flex items-center gap-1.5 ml-auto border border-slate-700"
+                                                                >
+                                                                    <Eye className="w-3.5 h-3.5 text-cyan-400" />
+                                                                    <span>See Details</span>
+                                                                </button>
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })}
+                                            </tbody>
+                                        </table>
+                                    </div>
+
+                                    {/* Pagination Controls Footer */}
+                                    <div className="p-4 border-t border-slate-800 bg-slate-950/60 flex flex-col sm:flex-row items-center justify-between gap-4 font-mono text-xs">
+                                        <span className="text-slate-400">
+                                            Showing <span className="text-white font-bold">{startIndex + 1}</span> to{' '}
+                                            <span className="text-white font-bold">{Math.min(startIndex + usersPerPage, filtered.length)}</span> of{' '}
+                                            <span className="text-cyan-400 font-bold">{filtered.length}</span> students
+                                        </span>
+
+                                        <div className="flex items-center gap-2">
+                                            <button
+                                                disabled={currentPage === 1}
+                                                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                                                className="px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 disabled:opacity-40 disabled:hover:bg-slate-800 text-xs font-bold transition flex items-center gap-1"
+                                            >
+                                                <ChevronLeft className="w-3.5 h-3.5" /> Previous
+                                            </button>
+
+                                            {Array.from({ length: totalPages }, (_, i) => i + 1).map((pg) => (
+                                                <button
+                                                    key={pg}
+                                                    onClick={() => setCurrentPage(pg)}
+                                                    className={`w-8 h-8 rounded-xl font-bold transition ${
+                                                        currentPage === pg
+                                                            ? 'bg-cyan-500 text-slate-950 shadow-md'
+                                                            : 'bg-slate-900 text-slate-400 hover:bg-slate-800'
+                                                    }`}
+                                                >
+                                                    {pg}
+                                                </button>
+                                            ))}
+
+                                            <button
+                                                disabled={currentPage === totalPages}
+                                                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                                                className="px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 disabled:opacity-40 disabled:hover:bg-slate-800 text-xs font-bold transition flex items-center gap-1"
+                                            >
+                                                Next <ChevronRight className="w-3.5 h-3.5" />
+                                            </button>
+                                        </div>
+                                    </div>
+                                </>
+                            );
+                        })()}
+                    </div>
+                </div>
+            )}
+
+            {/* VIEW 3: Emergency Support Escalation Tickets Table */}
+            {activeTab === 'support' && (
+                <div className="space-y-6">
+                    <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-2xl">
+                        <div>
+                            <div className="flex items-center gap-2">
+                                <ShieldAlert className="w-6 h-6 text-rose-500 animate-pulse" />
+                                <h3 className="text-xl font-bold text-white">Emergency Support Escalation Requests</h3>
+                            </div>
+                            <p className="text-xs text-slate-400 mt-1">Real-time incident response submissions, client contact info & breach details.</p>
+                        </div>
+
+                        <button
+                            onClick={fetchEmergencyTickets}
+                            className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-cyan-400 font-mono text-xs font-bold transition flex items-center gap-2 border border-slate-700 shrink-0"
+                        >
+                            <RefreshCw className={`w-3.5 h-3.5 ${loadingTickets ? 'animate-spin' : ''}`} />
+                            <span>Refresh Logs</span>
+                        </button>
+                    </div>
+
+                    <div className="bg-slate-900/90 border border-slate-800 rounded-3xl overflow-hidden shadow-2xl">
+                        {emergencyTickets.length === 0 ? (
+                            <div className="p-12 text-center text-slate-500 text-xs font-mono">
+                                No emergency incident requests recorded yet.
+                            </div>
+                        ) : (
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left text-xs">
+                                    <thead className="bg-slate-950 text-slate-400 font-mono text-[11px] uppercase tracking-wider border-b border-slate-800">
+                                        <tr>
+                                            <th className="p-4 w-16"># Ticket</th>
+                                            <th className="p-4">Client / Organization</th>
+                                            <th className="p-4">Contact Info</th>
+                                            <th className="p-4">Incident Description</th>
+                                            <th className="p-4 text-center">Status</th>
+                                            <th className="p-4 text-right">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-800/80 font-sans">
+                                        {emergencyTickets.map((t) => (
+                                            <tr key={t.id} className="hover:bg-slate-800/40 transition">
+                                                <td className="p-4 font-mono text-rose-400 font-bold">
+                                                    #{t.id}
+                                                </td>
+                                                <td className="p-4">
+                                                    <span className="font-bold text-white block">{t.name}</span>
+                                                    <span className="text-[11px] text-slate-400 font-mono block">Submitted: {new Date(t.created_at).toLocaleString()}</span>
+                                                </td>
+                                                <td className="p-4 font-mono">
+                                                    <div className="space-y-1">
+                                                        <a href={`mailto:${t.email}`} className="text-cyan-400 hover:underline flex items-center gap-1.5">
+                                                            <Mail className="w-3.5 h-3.5 text-cyan-400" />
+                                                            <span>{t.email}</span>
+                                                        </a>
+                                                        <a href={`tel:${t.contact}`} className="text-emerald-400 hover:underline flex items-center gap-1.5">
+                                                            <PhoneCall className="w-3.5 h-3.5 text-emerald-400" />
+                                                            <span>{t.contact}</span>
+                                                        </a>
+                                                    </div>
+                                                </td>
+                                                <td className="p-4 max-w-sm">
+                                                    <p className="text-slate-200 text-xs leading-relaxed bg-slate-950 p-3 rounded-xl border border-slate-800 whitespace-pre-wrap">
+                                                        {t.description}
+                                                    </p>
+                                                </td>
+                                                <td className="p-4 text-center font-mono">
+                                                    {t.status === 'resolved' ? (
+                                                        <span className="px-2.5 py-1 rounded-full bg-emerald-950 text-emerald-400 border border-emerald-800 font-bold text-[10px]">
+                                                            ✓ Resolved
+                                                        </span>
+                                                    ) : t.status === 'in_progress' ? (
+                                                        <span className="px-2.5 py-1 rounded-full bg-cyan-950 text-cyan-400 border border-cyan-800 font-bold text-[10px] animate-pulse">
+                                                            ⚡ In Progress
+                                                        </span>
+                                                    ) : (
+                                                        <span className="px-2.5 py-1 rounded-full bg-rose-950 text-rose-400 border border-rose-800 font-bold text-[10px] animate-pulse">
+                                                            🚨 Pending Action
+                                                        </span>
+                                                    )}
+                                                </td>
+                                                <td className="p-4 text-right">
+                                                    <div className="flex items-center justify-end gap-2">
+                                                        {t.status !== 'in_progress' && (
+                                                            <button
+                                                                onClick={() => handleUpdateTicketStatus(t.id, 'in_progress')}
+                                                                className="px-3 py-1.5 rounded-lg bg-cyan-950 text-cyan-300 hover:bg-cyan-900 border border-cyan-800 text-[11px] font-semibold transition"
+                                                            >
+                                                                Investigate
+                                                            </button>
+                                                        )}
+                                                        {t.status !== 'resolved' && (
+                                                            <button
+                                                                onClick={() => handleUpdateTicketStatus(t.id, 'resolved')}
+                                                                className="px-3 py-1.5 rounded-lg bg-emerald-950 text-emerald-300 hover:bg-emerald-900 border border-emerald-800 text-[11px] font-semibold transition"
+                                                            >
+                                                                Mark Resolved
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+
+
 
             {/* TAB 2: Course & Video Curriculum Builder */}
             {activeTab === 'builder' && (
@@ -915,6 +1162,9 @@ export default function AdminDashboardPage() {
                 </div>
             )}
 
+
+
+
             {/* TAB 3: Payment Transactions */}
             {activeTab === 'payments' && (
                 <div className="bg-slate-900/90 border border-slate-800 rounded-3xl overflow-hidden shadow-xl">
@@ -1092,8 +1342,11 @@ export default function AdminDashboardPage() {
                 </div>
             )}
 
+
             {/* Modal: Edit Course Settings */}
+
             {editingCourseModal && (
+
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
                     <div className="relative w-full max-w-xl bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
                         <button
@@ -1399,12 +1652,21 @@ export default function AdminDashboardPage() {
                         <div className="space-y-6 max-h-[60vh] overflow-y-auto pr-1">
                             {selectedStudentDetail.courses?.map((c) => (
                                 <div key={c.course_id} className="bg-slate-950 border border-slate-800 rounded-2xl p-5 space-y-4">
-                                    <div className="flex items-center justify-between pb-2 border-b border-slate-800">
-                                        <h4 className="font-bold text-white text-sm">{c.course_title}</h4>
-                                        <span className="text-xs font-mono text-cyan-400 capitalize">
+                                    <div className="flex items-center justify-between pb-2 border-b border-slate-800 flex-wrap gap-2">
+                                        <div className="flex items-center gap-3">
+                                            <h4 className="font-bold text-white text-sm">{c.course_title}</h4>
+                                            {(c.enrollment_status === 'completed' || c.sections?.every(s => s.completed_lessons > 0 && s.completed_lessons === s.total_lessons)) && (
+                                                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-500/80 font-mono text-xs font-bold shadow-lg shadow-emerald-500/20 animate-pulse">
+                                                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                                                    <span>✓ 100% COMPLETED</span>
+                                                </span>
+                                            )}
+                                        </div>
+                                        <span className="text-xs font-mono text-cyan-400 capitalize bg-slate-900 px-2.5 py-1 rounded-lg border border-slate-800">
                                             Status: {c.enrollment_status}
                                         </span>
                                     </div>
+
 
                                     {c.sections?.map((sec) => (
                                         <div key={sec.section_id} className="space-y-2">
@@ -1443,3 +1705,5 @@ export default function AdminDashboardPage() {
         </div>
     );
 }
+
+

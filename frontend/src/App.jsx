@@ -1,8 +1,8 @@
-import React from 'react';
-import { Route, Routes, BrowserRouter as Router, Navigate } from 'react-router-dom';
+import { Route, Routes, BrowserRouter as Router, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import ScrollToTop from './components/ScrollToTop';
 import Navbar from './components/Navbar';
+import PortalSidebar from './components/PortalSidebar';
 import HomePage from './pages/HomePage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
@@ -36,13 +36,24 @@ function ProtectedRoute({ children, adminOnly = false }) {
 }
 
 function LMSLayout({ children }) {
+    const { user } = useAuth();
+    const location = useLocation();
+
+    // Show sidebar persistently on all portal pages when user is logged in
+    const hideSidebarPaths = ['/login', '/register', '/'];
+    const showSidebar = user && !hideSidebarPaths.includes(location.pathname);
+
     return (
-        <div className="min-h-screen bg-slate-950 text-slate-100 font-sans selection:bg-cyan-500 selection:text-slate-950">
+        <div className="min-h-screen bg-[#050A18] text-slate-100 font-sans selection:bg-cyan-500 selection:text-slate-950 flex flex-col">
             <Navbar />
-            <main>{children}</main>
+            <div className="flex flex-1 relative">
+                {showSidebar && <PortalSidebar />}
+                <main className="flex-1 overflow-x-hidden min-w-0">{children}</main>
+            </div>
         </div>
     );
 }
+
 
 function AppContent() {
     return (

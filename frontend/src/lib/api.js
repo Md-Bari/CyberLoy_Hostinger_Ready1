@@ -144,5 +144,10 @@ export const api = {
     deleteProjectTask: (taskId) => request(`/admin/project-tasks/${taskId}`, { method: 'DELETE' }),
     assignUsersToProjectPlan: (planId, userIds) => request(`/admin/project-plans/${planId}/assign`, { method: 'POST', body: JSON.stringify({ user_ids: userIds }) }),
     adminUpdateUserTaskProgress: (planId, userId, data) => request(`/admin/project-plans/${planId}/users/${userId}/progress`, { method: 'POST', body: JSON.stringify(data) }),
+    // Emergency Support Incident Response
+    submitEmergencySupport: (data) => request('/emergency-support', { method: 'POST', body: JSON.stringify(data) }),
+    getEmergencySupportTickets: () => request('/admin/emergency-support'),
+    updateEmergencySupportStatus: (id, status) => request(`/admin/emergency-support/${id}/status`, { method: 'PUT', body: JSON.stringify({ status }) }),
 };
+
 

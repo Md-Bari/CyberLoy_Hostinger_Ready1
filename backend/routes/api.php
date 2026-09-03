@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\CertificateController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\AdminController;
 use App\Http\Controllers\Api\ProjectTaskController;
+use App\Http\Controllers\Api\EmergencySupportController;
 
 /*
 |--------------------------------------------------------------------------
@@ -90,5 +91,10 @@ Route::middleware('auth:api')->group(function () {
 
         // Certificate Issuance
         Route::post('/admin/issue-certificate', [AdminController::class, 'issueCertificate']);
+
+        // Emergency Support Ticket Management
+        Route::get('/admin/emergency-support', [EmergencySupportController::class, 'index']);
+        Route::put('/admin/emergency-support/{id}/status', [EmergencySupportController::class, 'updateStatus']);
     });
 });
+

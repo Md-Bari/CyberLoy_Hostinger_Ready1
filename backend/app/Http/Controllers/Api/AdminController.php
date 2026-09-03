@@ -44,6 +44,48 @@ class AdminController extends Controller
             }
         }
 
+        // Analytics Chart 1: Course Enrollment & Completion Distribution
+        $coursesList = Course::withCount(['enrollments', 'lessons'])->get();
+        $courseAnalytics = $coursesList->map(function ($c) {
+            $compCount = Enrollment::where('course_id', $c->id)->where('status', 'completed')->count();
+            $revenue = Payment::where('course_id', $c->id)->where('status', 'completed')->sum('amount');
+            return [
+                'id' => $c->id,
+                'title' => $c->title,
+                'enrollments' => $c->enrollments_count,
+                'completions' => $compCount,
+                'revenue' => (float) $revenue,
+            ];
+        });
+
+        // Analytics Chart 2: Real Monthly Revenue & Enrollment Trends from database
+        $monthlyTrends = [];
+        for ($i = 5; $i >= 0; $i--) {
+            $date = \Carbon\Carbon::now()->subMonths($i);
+            $monthName = $date->format('M');
+            $yearMonth = $date->format('Y-m');
+
+            $rev = Payment::where('status', 'completed')
+                ->whereRaw("DATE_FORMAT(created_at, '%Y-%m') = ?", [$yearMonth])
+                ->sum('amount');
+
+            $enr = Enrollment::whereRaw("DATE_FORMAT(created_at, '%Y-%m') = ?", [$yearMonth])
+                ->count();
+
+            $comp = Enrollment::where('status', 'completed')
+                ->whereRaw("DATE_FORMAT(updated_at, '%Y-%m') = ?", [$yearMonth])
+                ->count();
+
+            $monthlyTrends[] = [
+                'month' => $monthName,
+                'year_month' => $yearMonth,
+                'revenue' => (float) $rev,
+                'enrollments' => $enr,
+                'completions' => $comp,
+            ];
+        }
+
+
         return response()->json([
             'total_students' => $totalStudents,
             'total_courses' => $totalCourses,
@@ -54,8 +96,11 @@ class AdminController extends Controller
             'total_revenue' => (float) $totalRevenue,
             'total_payments' => $totalPayments,
             'completion_rate' => $totalEnrollments > 0 ? (int) round(($completedEnrollments / $totalEnrollments) * 100) : 0,
+            'course_analytics' => $courseAnalytics,
+            'monthly_trends' => $monthlyTrends,
         ]);
     }
+
 
     public function paymentsList()
     {
@@ -120,10 +165,19 @@ class AdminController extends Controller
 
     public function studentProgressDetail($userId)
     {
-        $user = User::where('role', 'user')->findOrFail($userId);
+        $user = User::findOrFail($userId);
         $enrollments = Enrollment::with(['course.sections.lessons'])->where('user_id', $user->id)->get();
 
-        $coursesDetail = $enrollments->map(function ($enrollment) use ($user) {
+        $formatDate = function ($date, $format = 'Y-m-d H:i') {
+            if (!$date) return null;
+            try {
+                return \Carbon\Carbon::parse($date)->format($format);
+            } catch (\Throwable $e) {
+                return (string) $date;
+            }
+        };
+
+        $coursesDetail = $enrollments->map(function ($enrollment) use ($user, $formatDate) {
             $course = $enrollment->course;
             if (!$course) return null;
 
@@ -134,10 +188,14 @@ class AdminController extends Controller
 
             $watchRecords = VideoWatchProgress::where('user_id', $user->id)->get()->keyBy('lesson_id');
 
-            $sections = $course->sections->map(function ($sec) use ($progressRecords, $watchRecords) {
-                $lessons = $sec->lessons->map(function ($les) use ($progressRecords, $watchRecords) {
+            $sections = $course->sections->map(function ($sec) use ($progressRecords, $watchRecords, $formatDate) {
+                $lessons = $sec->lessons->map(function ($les) use ($progressRecords, $watchRecords, $formatDate) {
                     $prog = $progressRecords->get($les->id);
                     $vProg = $watchRecords->get($les->id);
+
+                    $watchedSecs = $vProg
+                        ? ($vProg->watched_seconds > 0 ? $vProg->watched_seconds : VideoWatchProgress::calculateTotalSeconds($vProg->watched_intervals ?? []))
+                        : 0;
 
                     return [
                         'lesson_id' => $les->id,
@@ -146,9 +204,9 @@ class AdminController extends Controller
                         'youtube_video_id' => $les->youtube_video_id,
                         'status' => $prog ? $prog->status : 'not_started',
                         'progress_percentage' => $vProg ? $vProg->watch_percentage : ($prog ? $prog->progress_percentage : 0),
-                        'watched_seconds' => $vProg ? VideoWatchProgress::calculateTotalSeconds($vProg->watched_intervals ?? []) : 0,
+                        'watched_seconds' => $watchedSecs,
                         'watched_intervals' => $vProg ? ($vProg->watched_intervals ?? []) : [],
-                        'completed_at' => $prog ? ($prog->completed_at ? $prog->completed_at->format('Y-m-d H:i') : null) : null,
+                        'completed_at' => $prog ? $formatDate($prog->completed_at) : null,
                     ];
                 });
 
@@ -172,12 +230,13 @@ class AdminController extends Controller
                 'course_title' => $course->title,
                 'enrollment_status' => $enrollment->status,
                 'payment_status' => $enrollment->payment_status,
-                'enrolled_at' => $enrollment->created_at->format('Y-m-d'),
-                'completed_at' => $enrollment->completed_at ? $enrollment->completed_at->format('Y-m-d') : null,
+                'enrolled_at' => $formatDate($enrollment->created_at, 'Y-m-d'),
+                'completed_at' => $formatDate($enrollment->completed_at, 'Y-m-d'),
                 'certificate' => $certificate,
                 'sections' => $sections,
             ];
         })->filter()->values();
+
 
         return response()->json([
             'user' => [

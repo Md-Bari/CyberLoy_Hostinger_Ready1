@@ -2,14 +2,17 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../lib/api';
-import { Bell, Award, BookOpen, LayoutDashboard, LogOut, User, Shield, CheckCircle, CheckSquare } from 'lucide-react';
+import { Bell, Award, BookOpen, LayoutDashboard, LogOut, User, Shield, CheckCircle, CheckSquare, ShieldAlert } from 'lucide-react';
+import EmergencySupportModal from './EmergencySupportModal';
 
 export default function Navbar() {
     const { user, isAdmin, logout } = useAuth();
     const navigate = useNavigate();
     const [notifications, setNotifications] = useState([]);
     const [showNotifications, setShowNotifications] = useState(false);
+    const [showEmergencyModal, setShowEmergencyModal] = useState(false);
     const unreadCount = notifications.filter(n => !n.is_read).length;
+
 
     useEffect(() => {
         if (user) {
@@ -89,6 +92,15 @@ export default function Navbar() {
                         </>
                     )}
 
+
+                    <button
+                        onClick={() => setShowEmergencyModal(true)}
+                        className="flex items-center gap-1.5 text-xs text-rose-400 font-bold bg-rose-950/60 border border-rose-800/80 px-3 py-1.5 rounded-lg hover:bg-rose-900/60 transition shadow-sm animate-pulse"
+                    >
+
+                        <ShieldAlert className="w-3.5 h-3.5 text-rose-400" />
+                        <span>Emergency Support</span>
+                    </button>
 
                     {user ? (
                         <div className="flex items-center gap-4 border-l border-slate-800 pl-6">
@@ -179,6 +191,11 @@ export default function Navbar() {
                     )}
                 </div>
             </div>
+
+            <EmergencySupportModal
+                isOpen={showEmergencyModal}
+                onClose={() => setShowEmergencyModal(false)}
+            />
         </header>
     );
 }
