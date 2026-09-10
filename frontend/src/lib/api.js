@@ -2,10 +2,18 @@ export const getApiBaseUrl = () => {
     if (import.meta.env.VITE_API_URL) {
         return import.meta.env.VITE_API_URL.replace(/\/+$/, '');
     }
-    if (typeof window !== 'undefined' && window.location.hostname.includes('trycloudflare.com')) {
-        return 'https://transit-cumulative-patient-particular.trycloudflare.com/api';
+
+    if (typeof window !== 'undefined') {
+        const hostname = window.location.hostname;
+
+        if (hostname === 'localhost' || hostname === '127.0.0.1') {
+            return 'http://localhost:8035/api';
+        }
+
+        return `${window.location.origin.replace(/\/+$/, '')}/api`;
     }
-    return 'http://localhost:8000/api';
+
+    return 'http://localhost:8035/api';
 };
 
 const API_BASE_URL = getApiBaseUrl();
@@ -66,9 +74,16 @@ export const api = {
     },
     register: async (userData) => {
         const res = await request('/register', { method: 'POST', body: JSON.stringify(userData) });
-        if (res.token) setAuthToken(res.token);
-        if (res.user) setUserData(res.user);
+        if (res.token) {
+            setAuthToken(res.token);
+        }
+        if (res.token && res.user) {
+            setUserData(res.user);
+        }
         return res;
+    },
+    createUser: async (userData) => {
+        return request('/admin/users', { method: 'POST', body: JSON.stringify(userData) });
     },
     logout: async () => {
         try {
@@ -102,6 +117,7 @@ export const api = {
 
     // Classroom & Video Playback Tracking
     getLesson: (courseId, lessonId) => request(`/learn/${courseId}/${lessonId}`),
+    submitAssessment: (courseId, lessonId, answers) => request(`/learn/${courseId}/${lessonId}/assessment-submit`, { method: 'POST', body: JSON.stringify({ answers }) }),
     recordVideoProgress: (progressData) => request('/video-progress', { method: 'POST', body: JSON.stringify(progressData) }),
 
     // Certificates

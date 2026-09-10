@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Lock, Mail, Shield, UserCheck, BookOpen, AlertCircle } from 'lucide-react';
 
@@ -119,13 +119,15 @@ export default function LoginPage() {
                             <span>Admin Demo</span>
                         </button>
                     </div>
-                </div>
 
-                <div className="mt-6 text-center text-xs text-slate-400">
-                    Don't have an account?{' '}
-                    <Link to="/register" className="text-cyan-400 hover:underline font-semibold">
-                        Create Account
-                    </Link>
+                    <div className="mt-4 space-y-2 rounded-xl border border-slate-800 bg-slate-950/60 p-3 text-[11px] text-slate-300">
+                        <div>
+                            <span className="font-semibold text-cyan-400">Student demo:</span> student@cyberloy.com / password123
+                        </div>
+                        <div>
+                            <span className="font-semibold text-amber-400">Admin demo:</span> admin@cyberloy.com / password123
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Models\Course;
 use App\Models\CourseSection;
 use App\Models\Lesson;
+use App\Models\LessonAssessmentSubmission;
 use App\Models\LessonProgress;
 use App\Models\VideoWatchProgress;
 use App\Models\Enrollment;
@@ -188,10 +189,14 @@ class AdminController extends Controller
 
             $watchRecords = VideoWatchProgress::where('user_id', $user->id)->get()->keyBy('lesson_id');
 
-            $sections = $course->sections->map(function ($sec) use ($progressRecords, $watchRecords, $formatDate) {
-                $lessons = $sec->lessons->map(function ($les) use ($progressRecords, $watchRecords, $formatDate) {
+            $sections = $course->sections->map(function ($sec) use ($progressRecords, $watchRecords, $user, $formatDate) {
+                $lessons = $sec->lessons->map(function ($les) use ($progressRecords, $watchRecords, $user, $formatDate) {
                     $prog = $progressRecords->get($les->id);
                     $vProg = $watchRecords->get($les->id);
+                    $submission = LessonAssessmentSubmission::where('user_id', $user->id)
+                        ->where('lesson_id', $les->id)
+                        ->orderByDesc('created_at')
+                        ->first();
 
                     $watchedSecs = $vProg
                         ? ($vProg->watched_seconds > 0 ? $vProg->watched_seconds : VideoWatchProgress::calculateTotalSeconds($vProg->watched_intervals ?? []))
@@ -202,10 +207,21 @@ class AdminController extends Controller
                         'title' => $les->title,
                         'duration_seconds' => $les->duration_seconds,
                         'youtube_video_id' => $les->youtube_video_id,
+                        'pdf_url' => $les->pdf_url,
+                        'assessment_type' => $les->assessment_type,
+                        'assessment_config' => $les->assessment_config,
                         'status' => $prog ? $prog->status : 'not_started',
                         'progress_percentage' => $vProg ? $vProg->watch_percentage : ($prog ? $prog->progress_percentage : 0),
                         'watched_seconds' => $watchedSecs,
                         'watched_intervals' => $vProg ? ($vProg->watched_intervals ?? []) : [],
+                        'assessment_submission' => $submission ? [
+                            'id' => $submission->id,
+                            'status' => $submission->status,
+                            'answers' => $submission->answers,
+                            'score' => $submission->score,
+                            'teacher_notes' => $submission->teacher_notes,
+                            'submitted_at' => $formatDate($submission->created_at),
+                        ] : null,
                         'completed_at' => $prog ? $formatDate($prog->completed_at) : null,
                     ];
                 });
@@ -396,6 +412,9 @@ class AdminController extends Controller
             'description' => 'nullable|string',
             'content' => 'nullable|string',
             'youtube_url' => 'nullable|string',
+            'pdf_url' => 'nullable|string',
+            'assessment_type' => 'nullable|in:none,mcq,written',
+            'assessment_config' => 'nullable|array',
             'duration_seconds' => 'nullable|integer',
         ]);
 
@@ -412,10 +431,13 @@ class AdminController extends Controller
             'content' => $request->content,
             'youtube_url' => $ytUrl,
             'youtube_video_id' => $ytId,
+            'pdf_url' => $request->pdf_url,
+            'assessment_type' => $request->assessment_type ?? 'none',
+            'assessment_config' => $request->assessment_config ?? [],
             'duration_seconds' => $request->duration_seconds ?? 600,
             'sort_order' => $maxOrder + 1,
             'is_required' => true,
-            'completion_type' => 'video',
+            'completion_type' => $ytId ? 'video' : ($request->assessment_type === 'none' ? 'content' : 'manual'),
             'required_watch_percentage' => 100,
         ]);
 
@@ -440,11 +462,26 @@ class AdminController extends Controller
     {
         $lesson = Lesson::findOrFail($id);
 
-        $data = $request->only(['title', 'description', 'content', 'duration_seconds', 'sort_order', 'is_required', 'required_watch_percentage']);
+        $request->validate([
+            'title' => 'nullable|string|max:255',
+            'description' => 'nullable|string',
+            'content' => 'nullable|string',
+            'youtube_url' => 'nullable|string',
+            'pdf_url' => 'nullable|string',
+            'assessment_type' => 'nullable|in:none,mcq,written',
+            'assessment_config' => 'nullable|array',
+            'duration_seconds' => 'nullable|integer',
+        ]);
+
+        $data = $request->only(['title', 'description', 'content', 'duration_seconds', 'sort_order', 'is_required', 'required_watch_percentage', 'pdf_url', 'assessment_type']);
 
         if ($request->has('youtube_url')) {
             $data['youtube_url'] = $request->youtube_url;
             $data['youtube_video_id'] = Lesson::extractYouTubeId($request->youtube_url);
+        }
+
+        if ($request->has('assessment_config')) {
+            $data['assessment_config'] = $request->assessment_config ?? [];
         }
 
         $lesson->update($data);

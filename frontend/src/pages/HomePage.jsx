@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import Helmet from "react-helmet";
 import {
@@ -331,6 +331,8 @@ export default function HomePage() {
   const [showEmergencyModal, setShowEmergencyModal] = useState(false);
   const [courses, setCourses] = useState([]);
   const [coursesLoading, setCoursesLoading] = useState(true);
+  const coursesTrackRef = useRef(null);
+  const dragState = useRef({ dragging: false, startX: 0, startScrollLeft: 0 });
 
   useEffect(() => {
     loadCourses();
@@ -887,124 +889,133 @@ export default function HomePage() {
 
       {/* FEATURED COURSES */}
       <Section id="courses" className="bg-secondary/40">
-        <div className="grid gap-12 lg:grid-cols-[1fr_1.2fr] lg:items-center">
+        <div className="flex items-center justify-between gap-4">
           <Reveal>
-            <div>
-              <Eyebrow>Interactive Learning</Eyebrow>
-              <h2 className="font-display text-3xl font-semibold leading-tight sm:text-4xl">
-                Practical cybersecurity courses, completed at your pace.
-              </h2>
-              <p className="mt-5 text-base leading-relaxed text-muted-foreground">
-                Learn from industry practitioners through structured video
-                lessons, hands-on module tasks, and practical exercises. Track
-                your progress, complete courses at your own speed, and earn
-                verified completion certificates.
-              </p>
-              <ul className="mt-8 grid gap-4">
-                {[
-                  "Self-paced video learning with instructor guidance",
-                  "Practical hands-on tasks and real-world scenarios",
-                  "Module-based progression with completion tracking",
-                  "Verified certificates upon 100% course completion",
-                ].map((l) => (
-                  <li key={l} className="flex gap-3 text-sm leading-relaxed">
-                    <CheckCircle2
-                      className="mt-0.5 h-4 w-4 shrink-0 text-accent"
-                      strokeWidth={2}
-                    />
-                    <span>{l}</span>
-                  </li>
-                ))}
-              </ul>
-              <Link
-                to="/courses"
-                className="mt-8 inline-flex min-h-[48px] items-center justify-center gap-2 rounded bg-primary px-6 text-sm font-semibold text-primary-foreground transition-all hover:bg-primary/90 active:scale-[0.98]"
-              >
-                Browse All Courses <ArrowRight className="h-4 w-4" />
-              </Link>
-            </div>
+            <Eyebrow>Interactive Learning</Eyebrow>
           </Reveal>
+          <Link
+            to="/courses"
+            className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-full bg-primary px-5 text-sm font-semibold text-primary-foreground transition-all hover:bg-primary/90 active:scale-[0.98]"
+          >
+            Show All
+          </Link>
+        </div>
 
-          <Reveal delay={0.1}>
-            <div className="grid gap-6">
-              {coursesLoading ? (
-                <div className="flex items-center justify-center py-12 text-slate-400 text-sm">
-                  Loading featured courses...
-                </div>
-              ) : courses.length === 0 ? (
-                <div className="flex items-center justify-center py-12 text-slate-400 text-sm">
-                  No courses available yet.
-                </div>
-              ) : (
-                courses.map((course, idx) => {
+        <div className="mt-8">
+          {coursesLoading ? (
+            <div className="flex items-center justify-center py-12 text-slate-400 text-sm">
+              Loading featured courses...
+            </div>
+          ) : courses.length === 0 ? (
+            <div className="flex items-center justify-center py-12 text-slate-400 text-sm">
+              No courses available yet.
+            </div>
+          ) : (
+            <div className="overflow-hidden rounded-[28px] border border-border bg-card/40 p-4">
+              <div
+                ref={coursesTrackRef}
+                className="flex items-stretch gap-6 overflow-x-auto pb-2 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden select-none cursor-grab active:cursor-grabbing"
+                onPointerDown={(event) => {
+                  if (!coursesTrackRef.current) return;
+                  dragState.current.dragging = true;
+                  dragState.current.startX = event.clientX;
+                  dragState.current.startScrollLeft = coursesTrackRef.current.scrollLeft;
+                  coursesTrackRef.current.setPointerCapture?.(event.pointerId);
+                }}
+                onPointerMove={(event) => {
+                  if (!dragState.current.dragging || !coursesTrackRef.current) return;
+                  const delta = event.clientX - dragState.current.startX;
+                  coursesTrackRef.current.scrollLeft = dragState.current.startScrollLeft - delta;
+                }}
+                onPointerUp={() => {
+                  dragState.current.dragging = false;
+                }}
+                onPointerLeave={() => {
+                  dragState.current.dragging = false;
+                }}
+                onPointerCancel={() => {
+                  dragState.current.dragging = false;
+                }}
+              >
+                {courses.map((course, idx) => {
                   const price = Number(course.price || 49.0).toFixed(2);
                   return (
-                    <Reveal key={course.id} delay={idx * 0.08}>
-                      <Link
-                        to={`/courses/${course.id}`}
-                        className="group relative overflow-hidden rounded-2xl border border-border bg-card p-6 transition-all duration-300 ease-out hover:border-[#0052FE]/50 hover:shadow-lg hover:shadow-[#0052FE]/20"
-                      >
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-2">
-                              <span className="px-2.5 py-1 rounded-md text-[11px] font-semibold bg-slate-900 text-slate-300 border border-slate-700 group-hover:border-[#0052FE]/30 group-hover:bg-[#0052FE]/10 group-hover:text-[#0052FE] transition">
-                                {course.level}
+                    <Link
+                      key={`${course.id}-${idx}`}
+                      to={`/courses/${course.id}`}
+                      className="group relative w-[340px] shrink-0 overflow-hidden rounded-2xl border border-border bg-card p-5 transition-all duration-300 ease-out hover:border-[#0052FE]/50 hover:shadow-lg hover:shadow-[#0052FE]/20"
+                    >
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1">
+                          <div className="mb-3 flex items-center gap-2">
+                            <span className="rounded-md border border-slate-700 bg-slate-900 px-2.5 py-1 text-[11px] font-semibold text-slate-300 transition group-hover:border-[#0052FE]/30 group-hover:bg-[#0052FE]/10 group-hover:text-[#0052FE]">
+                              {course.level}
+                            </span>
+                            {course.is_unlocked ? (
+                              <span className="flex items-center gap-1 rounded-md border border-emerald-800/80 bg-emerald-950/80 px-2.5 py-1 text-[11px] font-bold text-emerald-400">
+                                <Unlock className="h-3 w-3" /> Unlocked
                               </span>
-                              {course.is_unlocked ? (
-                                <span className="flex items-center gap-1 text-[11px] font-bold text-emerald-400 bg-emerald-950/80 px-2.5 py-1 rounded-md border border-emerald-800/80">
-                                  <Unlock className="w-3 h-3" /> Unlocked
-                                </span>
-                              ) : (
-                                <span className="flex items-center gap-1 text-[11px] font-bold text-cyan-300 bg-cyan-950/80 px-2.5 py-1 rounded-md border border-cyan-800/80 font-mono">
-                                  ${price}
-                                </span>
-                              )}
-                            </div>
-                            <h3 className="font-display text-lg font-bold text-white group-hover:text-[#0052FE] transition line-clamp-2">
-                              {course.title}
-                            </h3>
-                            <p className="text-xs text-slate-400 mt-2 line-clamp-2 leading-relaxed">
-                              {course.description}
-                            </p>
-                            <div className="flex items-center gap-3 mt-4 text-xs text-slate-500">
-                              <span className="flex items-center gap-1 font-mono">
-                                <BarChart2 className="w-3.5 h-3.5" />
-                                {course.modules_count || 0} Modules
+                            ) : (
+                              <span className="rounded-md border border-cyan-800/80 bg-cyan-950/80 px-2.5 py-1 text-[11px] font-bold text-cyan-300 font-mono">
+                                ${price}
                               </span>
-                            </div>
+                            )}
                           </div>
-                          <div className="flex items-center justify-center">
-                            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#0052FE] to-cyan-600 flex items-center justify-center text-white group-hover:scale-110 transition">
-                              <BookOpen className="w-6 h-6" />
-                            </div>
-                          </div>
+
+                          <h3 className="line-clamp-2 font-display text-xl font-bold text-slate-900 transition group-hover:text-[#0052FE]">
+                            {course.title}
+                          </h3>
+
+                          <p className="mt-3 line-clamp-3 text-sm leading-relaxed text-slate-600">
+                            {course.description}
+                          </p>
                         </div>
 
-                        {course.is_unlocked && (
-                          <div className="mt-4 pt-4 border-t border-slate-800/80">
-                            <div className="flex justify-between text-[11px] font-mono mb-2 text-slate-300">
-                              <span>Progress</span>
-                              <span className="text-[#0052FE] font-bold">
-                                {course.progress_percentage}%
-                              </span>
-                            </div>
-                            <div className="w-full bg-slate-950 rounded-full h-2 overflow-hidden border border-slate-800">
-                              <div
-                                className="bg-gradient-to-r from-[#0052FE] to-cyan-500 h-full transition-all duration-500"
-                                style={{
-                                  width: `${course.progress_percentage}%`,
-                                }}
-                              />
-                            </div>
+                        <div className="flex items-center justify-center">
+                          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-[#0052FE] to-cyan-600 text-white transition group-hover:scale-110">
+                            <BookOpen className="h-6 w-6" />
                           </div>
+                        </div>
+                      </div>
+
+                      <div className="mt-5 flex items-center justify-between gap-3 border-t border-slate-800/80 pt-4 text-xs text-slate-500">
+                        <span className="flex items-center gap-1 font-mono">
+                          <BarChart2 className="h-3.5 w-3.5" />
+                          {course.modules_count || 0} Modules
+                        </span>
+                        {course.is_unlocked ? (
+                          <span className="text-[11px] font-mono text-[#0052FE]">
+                            {course.progress_percentage || 0}%
+                          </span>
+                        ) : (
+                          <span className="text-[11px] font-mono text-cyan-400">
+                            Get access
+                          </span>
                         )}
-                      </Link>
-                    </Reveal>
+                      </div>
+
+                      {course.is_unlocked && (
+                        <div className="mt-4">
+                          <div className="mb-2 flex justify-between text-[11px] font-mono text-slate-300">
+                            <span>Progress</span>
+                            <span className="text-[#0052FE] font-bold">
+                              {course.progress_percentage || 0}%
+                            </span>
+                          </div>
+                          <div className="h-2 w-full overflow-hidden rounded-full border border-slate-800 bg-slate-950">
+                            <div
+                              className="h-full bg-gradient-to-r from-[#0052FE] to-cyan-500 transition-all duration-500"
+                              style={{ width: `${course.progress_percentage || 0}%` }}
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </Link>
                   );
-                })
-              )}
+                })}
+              </div>
             </div>
-          </Reveal>
+          )}
         </div>
       </Section>
 

@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import YouTubePlayer from '../components/YouTubePlayer';
 import {
     BookOpen, CheckCircle2, Circle, Lock, Play, ArrowLeft, ArrowRight,
-    ChevronDown, ChevronUp, ShieldCheck, Award, FileText, Sparkles, AlertCircle
+    ChevronDown, ChevronUp, ShieldCheck, Award, FileText, Sparkles, AlertCircle, Download
 } from 'lucide-react';
 
 export default function LearnCoursePage() {
@@ -17,6 +17,8 @@ export default function LearnCoursePage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [completionToast, setCompletionToast] = useState('');
+    const [assessmentAnswers, setAssessmentAnswers] = useState([]);
+    const [assessmentSubmitting, setAssessmentSubmitting] = useState(false);
 
     useEffect(() => {
         loadClassroomData(lessonId);
@@ -28,6 +30,8 @@ export default function LearnCoursePage() {
         try {
             const res = await api.getLesson(courseId, targetLessonId);
             setData(res);
+            const currentSubmissionAnswers = res?.lesson?.assessment_submission?.answers || [];
+            setAssessmentAnswers(Array.isArray(currentSubmissionAnswers) ? currentSubmissionAnswers : []);
         } catch (err) {
             console.error('Failed to load lesson:', err);
             setError(err.message || 'Failed to load lesson content.');
@@ -90,6 +94,25 @@ export default function LearnCoursePage() {
         }
     };
 
+    const handleAssessmentSubmit = async () => {
+        if (!data?.lesson?.assessment_type || data.lesson.assessment_type === 'none') {
+            return;
+        }
+
+        setAssessmentSubmitting(true);
+        try {
+            await api.submitAssessment(courseId, lessonId, assessmentAnswers);
+            setCompletionToast('✅ Assessment submitted successfully.');
+            setTimeout(() => setCompletionToast(''), 5000);
+            await loadClassroomData(lessonId);
+        } catch (err) {
+            console.error('Failed to submit assessment:', err);
+            setError(err.message || 'Failed to submit assessment.');
+        } finally {
+            setAssessmentSubmitting(false);
+        }
+    };
+
 
     if (loading && !data) {
         return (
@@ -121,6 +144,9 @@ export default function LearnCoursePage() {
     const { course, lesson, navigation } = data;
     const isCompleted = lesson.is_completed;
     const isCourse100 = course.progress_percentage >= 100;
+    const assessmentQuestions = Array.isArray(lesson.assessment_config)
+        ? lesson.assessment_config
+        : (Array.isArray(lesson.assessment_config?.questions) ? lesson.assessment_config.questions : []);
 
     return (
         <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
@@ -250,6 +276,106 @@ export default function LearnCoursePage() {
                                         <FileText className="w-4 h-4" /> Notes & Key Learning Points
                                     </div>
                                     <p>{lesson.content}</p>
+                                </div>
+                            )}
+
+                            {lesson.pdf_url && (
+                                <div className="p-4 bg-slate-950 rounded-xl border border-slate-800/80">
+                                    <div className="text-cyan-400 font-bold mb-2 flex items-center gap-1.5 text-xs">
+                                        <Download className="w-4 h-4" /> Learning Material PDF
+                                    </div>
+                                    <a
+                                        href={lesson.pdf_url}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs"
+                                    >
+                                        <Download className="w-4 h-4" />
+                                        Open PDF Resource
+                                    </a>
+                                </div>
+                            )}
+
+                            {lesson.assessment_type && lesson.assessment_type !== 'none' && (
+                                <div className="p-4 bg-slate-950 rounded-xl border border-slate-800/80 space-y-4">
+                                    <div className="text-cyan-400 font-bold mb-2 flex items-center gap-1.5 text-xs">
+                                        <FileText className="w-4 h-4" /> Assessment
+                                    </div>
+
+                                    {lesson.assessment_submission ? (
+                                        <div className="space-y-2 text-xs text-slate-300">
+                                            <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-emerald-950 border border-emerald-500/70 text-emerald-300 font-semibold">
+                                                <CheckCircle2 className="w-3.5 h-3.5" />
+                                                Submitted
+                                            </div>
+                                            {lesson.assessment_submission.score !== null && lesson.assessment_submission.score !== undefined && (
+                                                <p className="text-slate-400">Score: {lesson.assessment_submission.score}</p>
+                                            )}
+                                            {lesson.assessment_submission.teacher_notes && (
+                                                <p className="text-slate-400">Instructor feedback: {lesson.assessment_submission.teacher_notes}</p>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-4">
+                                            {assessmentQuestions.length === 0 ? (
+                                                <p className="text-xs text-slate-400">No assessment questions are configured yet for this lesson.</p>
+                                            ) : (
+                                                assessmentQuestions.map((question, index) => (
+                                                    <div key={index} className="space-y-2 p-3 rounded-xl bg-slate-900 border border-slate-800">
+                                                        <label className="text-xs font-semibold text-slate-200">
+                                                            {index + 1}. {question.question || question.text || `Question ${index + 1}`}
+                                                        </label>
+
+                                                        {lesson.assessment_type === 'mcq' ? (
+                                                            <div className="space-y-2">
+                                                                {(question.options || []).map((option, optionIndex) => (
+                                                                    <label key={optionIndex} className="flex items-center gap-2 text-xs text-slate-300">
+                                                                        <input
+                                                                            type="radio"
+                                                                            name={`question-${index}`}
+                                                                            checked={assessmentAnswers[index] === option}
+                                                                            onChange={() => {
+                                                                                setAssessmentAnswers((prev) => {
+                                                                                    const next = [...(prev || [])];
+                                                                                    next[index] = option;
+                                                                                    return next;
+                                                                                });
+                                                                            }}
+                                                                            className="accent-cyan-500"
+                                                                        />
+                                                                        <span>{option}</span>
+                                                                    </label>
+                                                                ))}
+                                                            </div>
+                                                        ) : (
+                                                            <textarea
+                                                                rows="3"
+                                                                value={assessmentAnswers[index] || ''}
+                                                                onChange={(e) => {
+                                                                    setAssessmentAnswers((prev) => {
+                                                                        const next = [...(prev || [])];
+                                                                        next[index] = e.target.value;
+                                                                        return next;
+                                                                    });
+                                                                }}
+                                                                placeholder="Write your response here..."
+                                                                className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500"
+                                                            />
+                                                        )}
+                                                    </div>
+                                                ))
+                                            )}
+
+                                            <button
+                                                type="button"
+                                                onClick={handleAssessmentSubmit}
+                                                disabled={assessmentSubmitting || assessmentQuestions.length === 0}
+                                                className="px-4 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs transition disabled:opacity-50"
+                                            >
+                                                {assessmentSubmitting ? 'Submitting...' : 'Submit Assessment'}
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
                             )}
                         </div>

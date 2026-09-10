@@ -23,6 +23,8 @@ export default function AdminDashboardPage() {
     const [message, setMessage] = useState('');
     const [selectedStudentDetail, setSelectedStudentDetail] = useState(null);
     const [loadingDetail, setLoadingDetail] = useState(false);
+    const [newUserForm, setNewUserForm] = useState({ name: '', email: '', password: '', role: 'user' });
+    const [creatingUser, setCreatingUser] = useState(false);
 
     // Emergency Support State
     const [emergencyTickets, setEmergencyTickets] = useState([]);
@@ -66,6 +68,9 @@ export default function AdminDashboardPage() {
     const [newLessonTitle, setNewLessonTitle] = useState('');
     const [newLessonDesc, setNewLessonDesc] = useState('');
     const [newLessonYoutubeUrl, setNewLessonYoutubeUrl] = useState('');
+    const [newLessonPdfUrl, setNewLessonPdfUrl] = useState('');
+    const [newLessonAssessmentType, setNewLessonAssessmentType] = useState('none');
+    const [newLessonAssessmentConfig, setNewLessonAssessmentConfig] = useState('');
     const [newLessonDuration, setNewLessonDuration] = useState('600');
     const [addingLesson, setAddingLesson] = useState(false);
 
@@ -132,6 +137,29 @@ export default function AdminDashboardPage() {
             console.error('Failed to load admin data:', e);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleCreateUser = async (e) => {
+        e.preventDefault();
+        setCreatingUser(true);
+        setMessage('');
+
+        try {
+            await api.createUser({
+                name: newUserForm.name,
+                email: newUserForm.email,
+                password: newUserForm.password,
+                role: newUserForm.role,
+            });
+
+            setMessage(`${newUserForm.role === 'admin' ? 'Admin' : 'User'} "${newUserForm.name}" created successfully.`);
+            setNewUserForm({ name: '', email: '', password: '', role: 'user' });
+            await loadAdminData();
+        } catch (e) {
+            alert(e.message || 'Failed to create user');
+        } finally {
+            setCreatingUser(false);
         }
     };
 
@@ -300,15 +328,22 @@ export default function AdminDashboardPage() {
         if (!lessonModalSectionId) return;
         setAddingLesson(true);
         try {
+            const parsedAssessmentConfig = parseAssessmentConfig(newLessonAssessmentConfig);
             await api.addLesson(lessonModalSectionId, {
                 title: newLessonTitle,
                 description: newLessonDesc,
                 youtube_url: newLessonYoutubeUrl,
+                pdf_url: newLessonPdfUrl,
+                assessment_type: newLessonAssessmentType,
+                assessment_config: parsedAssessmentConfig,
                 duration_seconds: parseInt(newLessonDuration, 10) || 600,
             });
             setNewLessonTitle('');
             setNewLessonDesc('');
             setNewLessonYoutubeUrl('');
+            setNewLessonPdfUrl('');
+            setNewLessonAssessmentType('none');
+            setNewLessonAssessmentConfig('');
             setLessonModalSectionId(null);
             if (selectedCourseForBuilder) {
                 const updated = await api.getCourseDetails(selectedCourseForBuilder.id);
@@ -327,6 +362,13 @@ export default function AdminDashboardPage() {
         setNewLessonTitle(les.title);
         setNewLessonDesc(les.description || '');
         setNewLessonYoutubeUrl(les.youtube_url || (les.youtube_video_id ? `https://www.youtube.com/watch?v=${les.youtube_video_id}` : ''));
+        setNewLessonPdfUrl(les.pdf_url || '');
+        setNewLessonAssessmentType(les.assessment_type || 'none');
+        setNewLessonAssessmentConfig(
+            typeof les.assessment_config === 'string'
+                ? les.assessment_config
+                : JSON.stringify(les.assessment_config || {}, null, 2)
+        );
         setNewLessonDuration(String(les.duration_seconds || 600));
     };
 
@@ -335,13 +377,23 @@ export default function AdminDashboardPage() {
         if (!editingLessonModal) return;
         setAddingLesson(true);
         try {
+            const parsedAssessmentConfig = parseAssessmentConfig(newLessonAssessmentConfig);
             await api.updateLesson(editingLessonModal.id, {
                 title: newLessonTitle,
                 description: newLessonDesc,
                 youtube_url: newLessonYoutubeUrl,
+                pdf_url: newLessonPdfUrl,
+                assessment_type: newLessonAssessmentType,
+                assessment_config: parsedAssessmentConfig,
                 duration_seconds: parseInt(newLessonDuration, 10) || 600,
             });
             setEditingLessonModal(null);
+            setNewLessonTitle('');
+            setNewLessonDesc('');
+            setNewLessonYoutubeUrl('');
+            setNewLessonPdfUrl('');
+            setNewLessonAssessmentType('none');
+            setNewLessonAssessmentConfig('');
             if (selectedCourseForBuilder) {
                 const updated = await api.getCourseDetails(selectedCourseForBuilder.id);
                 setSelectedCourseForBuilder(updated);
@@ -351,6 +403,19 @@ export default function AdminDashboardPage() {
             alert(e.message || 'Failed to update lesson');
         } finally {
             setAddingLesson(false);
+        }
+    };
+
+    const parseAssessmentConfig = (value) => {
+        if (!value || !value.trim()) {
+            return [];
+        }
+
+        try {
+            const parsed = JSON.parse(value);
+            return parsed;
+        } catch (e) {
+            throw new Error('Assessment configuration must be valid JSON.');
         }
     };
 
@@ -701,6 +766,76 @@ export default function AdminDashboardPage() {
                                 className="w-full bg-slate-950 border border-slate-800 rounded-2xl pl-10 pr-4 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 font-mono"
                             />
                         </div>
+                    </div>
+
+                    {/* Create New User Form */}
+                    <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 shadow-2xl">
+                        <div className="flex items-center justify-between gap-4 mb-4">
+                            <div>
+                                <h4 className="text-base font-bold text-white">Create New User</h4>
+                                <p className="text-xs text-slate-400 mt-1">Create a student or admin account and assign login credentials in the LMS.</p>
+                            </div>
+                            <div className="flex items-center gap-2 text-cyan-400 text-[10px] font-mono uppercase tracking-wider">
+                                <Plus className="w-3.5 h-3.5" />
+                                Admin-only action
+                            </div>
+                        </div>
+
+                        <form onSubmit={handleCreateUser} className="grid grid-cols-1 md:grid-cols-5 gap-3 items-end">
+                            <div className="md:col-span-1">
+                                <label className="block text-[10px] font-mono uppercase tracking-wider text-slate-400 mb-1.5">Full Name</label>
+                                <input
+                                    type="text"
+                                    required
+                                    value={newUserForm.name}
+                                    onChange={(e) => setNewUserForm({ ...newUserForm, name: e.target.value })}
+                                    placeholder="Jane Doe"
+                                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500"
+                                />
+                            </div>
+                            <div className="md:col-span-1">
+                                <label className="block text-[10px] font-mono uppercase tracking-wider text-slate-400 mb-1.5">Email</label>
+                                <input
+                                    type="email"
+                                    required
+                                    value={newUserForm.email}
+                                    onChange={(e) => setNewUserForm({ ...newUserForm, email: e.target.value })}
+                                    placeholder="student@example.com"
+                                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500"
+                                />
+                            </div>
+                            <div className="md:col-span-1">
+                                <label className="block text-[10px] font-mono uppercase tracking-wider text-slate-400 mb-1.5">Password</label>
+                                <input
+                                    type="text"
+                                    required
+                                    value={newUserForm.password}
+                                    onChange={(e) => setNewUserForm({ ...newUserForm, password: e.target.value })}
+                                    placeholder="Temporary password"
+                                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500"
+                                />
+                            </div>
+                            <div className="md:col-span-1">
+                                <label className="block text-[10px] font-mono uppercase tracking-wider text-slate-400 mb-1.5">Role</label>
+                                <select
+                                    value={newUserForm.role}
+                                    onChange={(e) => setNewUserForm({ ...newUserForm, role: e.target.value })}
+                                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-cyan-500"
+                                >
+                                    <option value="user">User</option>
+                                    <option value="admin">Admin</option>
+                                </select>
+                            </div>
+                            <div className="md:col-span-1">
+                                <button
+                                    type="submit"
+                                    disabled={creatingUser}
+                                    className="w-full px-4 py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs transition disabled:opacity-50"
+                                >
+                                    {creatingUser ? 'Creating...' : 'Create User'}
+                                </button>
+                            </div>
+                        </form>
                     </div>
 
                     {/* Paginated Users Data Table */}
@@ -1565,8 +1700,18 @@ export default function AdminDashboardPage() {
                                     placeholder="https://www.youtube.com/watch?v=VIDEO_ID or youtu.be/ID"
                                     value={newLessonYoutubeUrl}
                                     onChange={(e) => setNewLessonYoutubeUrl(e.target.value)}
-                                    required
                                     className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white font-mono placeholder-slate-500 focus:outline-none focus:border-cyan-500"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="text-xs font-semibold text-slate-300 block mb-1">PDF Learning Material URL (optional)</label>
+                                <input
+                                    type="text"
+                                    placeholder="https://example.com/lesson-notes.pdf"
+                                    value={newLessonPdfUrl}
+                                    onChange={(e) => setNewLessonPdfUrl(e.target.value)}
+                                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500"
                                 />
                             </div>
 
@@ -1590,6 +1735,32 @@ export default function AdminDashboardPage() {
                                         disabled
                                         value="100% Video Watch"
                                         className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-cyan-400 font-mono opacity-80"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div>
+                                    <label className="text-xs font-semibold text-slate-300 block mb-1">Assessment Type</label>
+                                    <select
+                                        value={newLessonAssessmentType}
+                                        onChange={(e) => setNewLessonAssessmentType(e.target.value)}
+                                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-cyan-500"
+                                    >
+                                        <option value="none">No Assessment</option>
+                                        <option value="mcq">MCQ Quiz</option>
+                                        <option value="written">Written Response</option>
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label className="text-xs font-semibold text-slate-300 block mb-1">Assessment Config (JSON)</label>
+                                    <input
+                                        type="text"
+                                        placeholder='{"questions":[{"question":"...","options":[]}]} '
+                                        value={newLessonAssessmentConfig}
+                                        onChange={(e) => setNewLessonAssessmentConfig(e.target.value)}
+                                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500"
                                     />
                                 </div>
                             </div>

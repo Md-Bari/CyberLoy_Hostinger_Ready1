@@ -43,6 +43,9 @@ export default function CourseBuilderPage() {
     const [newLessonTitle, setNewLessonTitle] = useState('');
     const [newLessonDesc, setNewLessonDesc] = useState('');
     const [newLessonYoutubeUrl, setNewLessonYoutubeUrl] = useState('');
+    const [newLessonPdfUrl, setNewLessonPdfUrl] = useState('');
+    const [newLessonAssessmentType, setNewLessonAssessmentType] = useState('none');
+    const [newLessonAssessmentConfig, setNewLessonAssessmentConfig] = useState('');
     const [newLessonDuration, setNewLessonDuration] = useState('600');
     const [addingLesson, setAddingLesson] = useState(false);
 
@@ -219,15 +222,22 @@ export default function CourseBuilderPage() {
         if (!lessonModalSectionId) return;
         setAddingLesson(true);
         try {
+            const parsedAssessmentConfig = parseAssessmentConfig(newLessonAssessmentConfig);
             await api.addLesson(lessonModalSectionId, {
                 title: newLessonTitle,
                 description: newLessonDesc,
                 youtube_url: newLessonYoutubeUrl,
+                pdf_url: newLessonPdfUrl,
+                assessment_type: newLessonAssessmentType,
+                assessment_config: parsedAssessmentConfig,
                 duration_seconds: parseInt(newLessonDuration, 10) || 600,
             });
             setNewLessonTitle('');
             setNewLessonDesc('');
             setNewLessonYoutubeUrl('');
+            setNewLessonPdfUrl('');
+            setNewLessonAssessmentType('none');
+            setNewLessonAssessmentConfig('');
             setLessonModalSectionId(null);
             await loadCourses();
         } catch (e) {
@@ -242,6 +252,13 @@ export default function CourseBuilderPage() {
         setNewLessonTitle(les.title);
         setNewLessonDesc(les.description || '');
         setNewLessonYoutubeUrl(les.youtube_url || (les.youtube_video_id ? `https://www.youtube.com/watch?v=${les.youtube_video_id}` : ''));
+        setNewLessonPdfUrl(les.pdf_url || '');
+        setNewLessonAssessmentType(les.assessment_type || 'none');
+        setNewLessonAssessmentConfig(
+            typeof les.assessment_config === 'string'
+                ? les.assessment_config
+                : JSON.stringify(les.assessment_config || {}, null, 2)
+        );
         setNewLessonDuration(String(les.duration_seconds || 600));
     };
 
@@ -250,18 +267,41 @@ export default function CourseBuilderPage() {
         if (!editingLessonModal) return;
         setAddingLesson(true);
         try {
+            const parsedAssessmentConfig = parseAssessmentConfig(newLessonAssessmentConfig);
             await api.updateLesson(editingLessonModal.id, {
                 title: newLessonTitle,
                 description: newLessonDesc,
                 youtube_url: newLessonYoutubeUrl,
+                pdf_url: newLessonPdfUrl,
+                assessment_type: newLessonAssessmentType,
+                assessment_config: parsedAssessmentConfig,
                 duration_seconds: parseInt(newLessonDuration, 10) || 600,
             });
             setEditingLessonModal(null);
+            setNewLessonTitle('');
+            setNewLessonDesc('');
+            setNewLessonYoutubeUrl('');
+            setNewLessonPdfUrl('');
+            setNewLessonAssessmentType('none');
+            setNewLessonAssessmentConfig('');
             await loadCourses();
         } catch (e) {
             alert(e.message || 'Failed to update lesson');
         } finally {
             setAddingLesson(false);
+        }
+    };
+
+    const parseAssessmentConfig = (value) => {
+        if (!value || !value.trim()) {
+            return [];
+        }
+
+        try {
+            const parsed = JSON.parse(value);
+            return parsed;
+        } catch (e) {
+            throw new Error('Assessment configuration must be valid JSON.');
         }
     };
 
@@ -912,8 +952,18 @@ export default function CourseBuilderPage() {
                                     placeholder="https://www.youtube.com/watch?v=VIDEO_ID or youtu.be/ID"
                                     value={newLessonYoutubeUrl}
                                     onChange={(e) => setNewLessonYoutubeUrl(e.target.value)}
-                                    required
                                     className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white font-mono placeholder-slate-500 focus:outline-none focus:border-cyan-500"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="text-xs font-semibold text-slate-300 block mb-1">PDF Learning Material URL (optional)</label>
+                                <input
+                                    type="text"
+                                    placeholder="https://example.com/lesson-notes.pdf"
+                                    value={newLessonPdfUrl}
+                                    onChange={(e) => setNewLessonPdfUrl(e.target.value)}
+                                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500"
                                 />
                             </div>
 
@@ -937,6 +987,32 @@ export default function CourseBuilderPage() {
                                         disabled
                                         value="100% Video Watch"
                                         className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-cyan-400 font-mono opacity-80"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div>
+                                    <label className="text-xs font-semibold text-slate-300 block mb-1">Assessment Type</label>
+                                    <select
+                                        value={newLessonAssessmentType}
+                                        onChange={(e) => setNewLessonAssessmentType(e.target.value)}
+                                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-cyan-500"
+                                    >
+                                        <option value="none">No Assessment</option>
+                                        <option value="mcq">MCQ Quiz</option>
+                                        <option value="written">Written Response</option>
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label className="text-xs font-semibold text-slate-300 block mb-1">Assessment Config (JSON)</label>
+                                    <input
+                                        type="text"
+                                        placeholder='{"questions":[{"question":"...","options":[]}]} '
+                                        value={newLessonAssessmentConfig}
+                                        onChange={(e) => setNewLessonAssessmentConfig(e.target.value)}
+                                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500"
                                     />
                                 </div>
                             </div>

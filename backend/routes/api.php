@@ -18,7 +18,6 @@ use App\Http\Controllers\Api\EmergencySupportController;
 */
 
 // Public Authentication & Course Catalog
-Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/refresh', [AuthController::class, 'refresh']);
 Route::get('/courses', [CourseController::class, 'index']);
@@ -44,6 +43,7 @@ Route::middleware('auth:api')->group(function () {
 
     // Learning Classroom & Video Playback Tracking
     Route::get('/learn/{courseId}/{lessonId}', [CourseController::class, 'getLesson']);
+    Route::post('/learn/{courseId}/{lessonId}/assessment-submit', [CourseController::class, 'submitAssessment']);
     Route::post('/video-progress', [VideoProgressController::class, 'recordProgress']);
 
     // Student Project & Task Management
@@ -58,6 +58,9 @@ Route::middleware('auth:api')->group(function () {
 
     // Admin Routes
     Route::middleware('admin')->group(function () {
+        // Admin User Management
+        Route::post('/admin/users', [AuthController::class, 'register']);
+
         // Admin Dashboard Stats & Analytics
         Route::get('/admin/dashboard', [AdminController::class, 'dashboardStats']);
         Route::get('/admin/payments', [AdminController::class, 'paymentsList']);

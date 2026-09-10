@@ -16,6 +16,9 @@ class Lesson extends Model
         'content',
         'youtube_url',
         'youtube_video_id',
+        'pdf_url',
+        'assessment_type',
+        'assessment_config',
         'duration_seconds',
         'sort_order',
         'is_required',
@@ -28,6 +31,7 @@ class Lesson extends Model
         'duration_seconds' => 'integer',
         'required_watch_percentage' => 'integer',
         'sort_order' => 'integer',
+        'assessment_config' => 'array',
     ];
 
     public function section()
@@ -43,6 +47,11 @@ class Lesson extends Model
     public function videoWatchProgress()
     {
         return $this->hasMany(VideoWatchProgress::class);
+    }
+
+    public function submissions()
+    {
+        return $this->hasMany(LessonAssessmentSubmission::class);
     }
 
     public static function extractYouTubeId(?string $url): ?string

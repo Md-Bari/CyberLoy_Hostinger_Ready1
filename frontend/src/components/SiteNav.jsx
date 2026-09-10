@@ -122,15 +122,6 @@ export default function SiteNav() {
           </a>
           <Dropdown label="Services" items={services} anchor="#services" />
           <Dropdown label="Solutions" items={solutions} anchor="#solutions" />
-          {simpleLinks.map(([label, href]) => (
-            <a
-              key={label}
-              href={href}
-              className="py-2 text-sm font-medium text-foreground/80 transition-colors hover:text-primary"
-            >
-              {label}
-            </a>
-          ))}
           <Link
             to="/courses"
             className="flex items-center gap-1.5 py-2 text-sm font-medium text-foreground/80 transition-colors hover:text-primary"
@@ -138,18 +129,6 @@ export default function SiteNav() {
             <BookOpen className="h-4 w-4 text-primary" />
             <span>Courses</span>
           </Link>
-          <a
-            href="#emergency"
-            className="flex items-center gap-1.5 py-2 text-sm font-semibold text-destructive transition-opacity hover:opacity-80"
-          >
-            <PhoneCall className="h-4 w-4" strokeWidth={2} /> Emergency Support
-          </a>
-          <a
-            href="#assessment"
-            className="rounded border border-primary/20 bg-primary/10 px-3.5 py-2 text-sm font-semibold text-primary transition-colors hover:bg-primary hover:text-primary-foreground"
-          >
-            Security Assessment
-          </a>
 
           {/* Auth Buttons: Login and Register */}
           <div className="flex items-center gap-2.5 border-l border-border pl-4">
@@ -195,39 +174,35 @@ export default function SiteNav() {
       {mobile && (
         <div className="border-t border-border bg-card px-5 py-4 xl:hidden">
           <div className="grid gap-1">
-            {[
-              "Home",
-              "Services",
-              "Solutions",
-              "Industries",
-              "Training",
-              "Resources",
-              "Company",
-            ].map((label) => (
-              <a
-                key={label}
-                href={`#${label.toLowerCase() === "home" ? "top" : label.toLowerCase() === "resources" ? "insights" : label.toLowerCase()}`}
-                onClick={() => setMobile(false)}
-                className="rounded px-2 py-3 text-sm font-medium text-foreground/85 hover:bg-secondary"
-              >
-                {label}
-              </a>
-            ))}
+            <a
+              href="#top"
+              onClick={() => setMobile(false)}
+              className="rounded px-2 py-3 text-sm font-medium text-foreground/85 hover:bg-secondary"
+            >
+              Home
+            </a>
+            <a
+              href="#services"
+              onClick={() => setMobile(false)}
+              className="rounded px-2 py-3 text-sm font-medium text-foreground/85 hover:bg-secondary"
+            >
+              Services
+            </a>
+            <a
+              href="#solutions"
+              onClick={() => setMobile(false)}
+              className="rounded px-2 py-3 text-sm font-medium text-foreground/85 hover:bg-secondary"
+            >
+              Solutions
+            </a>
             <Link
               to="/courses"
               onClick={() => setMobile(false)}
               className="flex items-center gap-2 rounded px-2 py-3 text-sm font-medium text-foreground/85 hover:bg-secondary"
             >
               <BookOpen className="h-4 w-4 text-primary" />
-              <span>LMS Courses</span>
+              <span>Courses</span>
             </Link>
-            <a
-              href="#emergency"
-              onClick={() => setMobile(false)}
-              className="rounded px-2 py-3 text-sm font-semibold text-destructive"
-            >
-              Emergency Support
-            </a>
 
             {/* Mobile Auth Buttons */}
             <div className="mt-3 grid grid-cols-2 gap-2 border-t border-border pt-3">
@@ -262,13 +237,6 @@ export default function SiteNav() {
               )}
             </div>
 
-            <a
-              href="#assessment"
-              onClick={() => setMobile(false)}
-              className="mt-2 rounded bg-secondary px-4 py-3 text-center text-sm font-semibold text-foreground hover:bg-secondary/80"
-            >
-              Request a Security Assessment
-            </a>
           </div>
         </div>
       )}

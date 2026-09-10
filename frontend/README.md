@@ -18,7 +18,7 @@ This directory contains the clean, standalone Vite + React frontend application 
    npm run dev
    ```
 
-3. Open local URL (http://localhost:3000) in your browser.
+3. Open local URL (http://localhost:3035) in your browser.
 
 ## Production Build
 

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Course;
 use App\Models\CourseSection;
 use App\Models\Lesson;
+use App\Models\LessonAssessmentSubmission;
 use App\Models\LessonProgress;
 use App\Models\VideoWatchProgress;
 use App\Models\Enrollment;
@@ -272,6 +273,20 @@ class CourseController extends Controller
         $lesson->current_position = $videoWatch ? $videoWatch->current_position : 0;
         $lesson->watched_intervals = $videoWatch ? ($videoWatch->watched_intervals ?? []) : [];
 
+        $submission = LessonAssessmentSubmission::where('user_id', $user->id)
+            ->where('lesson_id', $lesson->id)
+            ->orderByDesc('created_at')
+            ->first();
+
+        $lesson->assessment_submission = $submission ? [
+            'id' => $submission->id,
+            'status' => $submission->status,
+            'answers' => $submission->answers,
+            'score' => $submission->score,
+            'teacher_notes' => $submission->teacher_notes,
+            'created_at' => $submission->created_at,
+        ] : null;
+
         // Annotate sidebar sections with current user's completion states
         $previousCompleted = true;
         foreach ($course->sections as $sec) {
@@ -320,6 +335,62 @@ class CourseController extends Controller
             'navigation' => [
                 'previous_lesson_id' => $prevLesson ? $prevLesson->id : null,
                 'next_lesson_id' => $nextLesson ? $nextLesson->id : null,
+            ],
+        ]);
+    }
+
+    public function submitAssessment(Request $request, $courseId, $lessonId)
+    {
+        $user = $this->getAuthenticatedUser($request);
+        if (!$user) {
+            return response()->json(['message' => 'Unauthenticated access.'], 401);
+        }
+
+        $course = Course::findOrFail($courseId);
+        $lesson = Lesson::findOrFail($lessonId);
+
+        if ($lesson->section_id && $lesson->section) {
+            $sectionCourseId = $lesson->section->course_id;
+            if ((int) $sectionCourseId !== (int) $course->id) {
+                return response()->json(['message' => 'Lesson does not belong to this course.'], 422);
+            }
+        }
+
+        $request->validate([
+            'answers' => 'required|array',
+        ]);
+
+        $submission = LessonAssessmentSubmission::updateOrCreate(
+            ['user_id' => $user->id, 'lesson_id' => $lesson->id],
+            [
+                'course_id' => $course->id,
+                'answers' => $request->answers,
+                'status' => 'submitted',
+            ]
+        );
+
+        LessonProgress::updateOrCreate(
+            [
+                'user_id' => $user->id,
+                'course_id' => $course->id,
+                'lesson_id' => $lesson->id,
+            ],
+            [
+                'section_id' => $lesson->section_id,
+                'status' => 'completed',
+                'progress_percentage' => 100,
+                'completed_at' => now(),
+                'last_accessed_at' => now(),
+            ]
+        );
+
+        return response()->json([
+            'message' => 'Assessment submitted successfully.',
+            'submission' => [
+                'id' => $submission->id,
+                'status' => $submission->status,
+                'answers' => $submission->answers,
+                'created_at' => $submission->created_at,
             ],
         ]);
     }

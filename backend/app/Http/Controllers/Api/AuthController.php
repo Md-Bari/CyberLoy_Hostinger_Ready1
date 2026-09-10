@@ -15,28 +15,33 @@ class AuthController extends Controller
      */
     public function register(Request $request)
     {
+        $currentUser = auth('api')->user();
+
+        if (!$currentUser || $currentUser->role !== 'admin') {
+            return response()->json([
+                'message' => 'Only administrators can create new users.',
+            ], 403);
+        }
+
         $request->validate([
             'name'     => 'required|string|max:255',
             'email'    => 'required|string|email|max:255|unique:users',
             'password' => 'required|string|min:6',
-            'role'     => 'nullable|in:admin,user',
+            'role'     => 'nullable|in:user,admin',
         ]);
+
+        $role = $request->role === 'admin' ? 'admin' : 'user';
 
         $user = User::create([
             'name'     => $request->name,
             'email'    => $request->email,
             'password' => Hash::make($request->password),
-            'role'     => $request->role ?? 'user',
+            'role'     => $role,
         ]);
 
-        $token = auth('api')->login($user);
-
         return response()->json([
-            'message'    => 'User registered successfully',
-            'token'      => $token,
-            'token_type' => 'bearer',
-            'expires_in' => auth('api')->factory()->getTTL() * 60,
-            'user'       => $user,
+            'message' => $role === 'admin' ? 'Admin account created successfully.' : 'User account created successfully.',
+            'user'    => $user,
         ], 201);
     }
 

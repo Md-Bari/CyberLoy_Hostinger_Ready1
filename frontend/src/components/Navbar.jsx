@@ -2,15 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../lib/api';
-import { Bell, Award, BookOpen, LayoutDashboard, LogOut, User, Shield, CheckCircle, CheckSquare, ShieldAlert } from 'lucide-react';
-import EmergencySupportModal from './EmergencySupportModal';
+import { Bell, Award, BookOpen, LogOut, CheckSquare } from 'lucide-react';
 
 export default function Navbar() {
     const { user, isAdmin, logout } = useAuth();
     const navigate = useNavigate();
     const [notifications, setNotifications] = useState([]);
     const [showNotifications, setShowNotifications] = useState(false);
-    const [showEmergencyModal, setShowEmergencyModal] = useState(false);
     const unreadCount = notifications.filter(n => !n.is_read).length;
 
 
@@ -74,33 +72,6 @@ export default function Navbar() {
                             </Link>
                         </>
                     )}
-
-                    {isAdmin && (
-                        <>
-                            <Link to="/admin/task-builder" className="flex items-center gap-1.5 text-sm text-cyan-400 hover:text-cyan-300 transition font-semibold bg-cyan-950/40 border border-cyan-800/60 px-3 py-1.5 rounded-lg">
-                                <CheckSquare className="w-4 h-4 text-cyan-400" />
-                                <span>Task Builder</span>
-                            </Link>
-                            <Link to="/admin/builder" className="flex items-center gap-1.5 text-sm text-slate-300 hover:text-cyan-300 transition font-medium bg-slate-800/60 border border-slate-700/60 px-3 py-1.5 rounded-lg">
-                                <BookOpen className="w-4 h-4 text-cyan-400" />
-                                <span>Course Builder</span>
-                            </Link>
-                            <Link to="/admin" className="flex items-center gap-1.5 text-sm text-amber-400 hover:text-amber-300 transition font-medium bg-amber-950/40 border border-amber-800/60 px-3 py-1.5 rounded-lg">
-                                <Shield className="w-4 h-4 text-amber-400" />
-                                <span>Admin Portal</span>
-                            </Link>
-                        </>
-                    )}
-
-
-                    <button
-                        onClick={() => setShowEmergencyModal(true)}
-                        className="flex items-center gap-1.5 text-xs text-rose-400 font-bold bg-rose-950/60 border border-rose-800/80 px-3 py-1.5 rounded-lg hover:bg-rose-900/60 transition shadow-sm animate-pulse"
-                    >
-
-                        <ShieldAlert className="w-3.5 h-3.5 text-rose-400" />
-                        <span>Emergency Support</span>
-                    </button>
 
                     {user ? (
                         <div className="flex items-center gap-4 border-l border-slate-800 pl-6">
@@ -192,10 +163,6 @@ export default function Navbar() {
                 </div>
             </div>
 
-            <EmergencySupportModal
-                isOpen={showEmergencyModal}
-                onClose={() => setShowEmergencyModal(false)}
-            />
         </header>
     );
 }

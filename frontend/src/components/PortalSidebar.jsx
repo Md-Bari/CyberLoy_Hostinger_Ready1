@@ -7,11 +7,14 @@ import {
 } from 'lucide-react';
 
 import { useAuth } from '../context/AuthContext';
+import EmergencySupportModal from './EmergencySupportModal';
+import logoUrl from '@/assets/cyberloy-logo.png';
 
 export default function PortalSidebar({ activeTab, setActiveTab, paymentsCount = 0 }) {
     const { user, logout, isAdmin } = useAuth();
     const navigate = useNavigate();
     const location = useLocation();
+    const [showEmergencyModal, setShowEmergencyModal] = useState(false);
 
     const isAdminUser = isAdmin || user?.role === 'admin';
 
@@ -28,22 +31,13 @@ export default function PortalSidebar({ activeTab, setActiveTab, paymentsCount =
     return (
         <aside className="w-72 shrink-0 bg-[#080E21] border-r border-[#162447] min-h-screen flex flex-col font-sans text-slate-200 select-none shadow-2xl">
             {/* Top Emblem Header (Exact Daffodil / CyberLoy Style) */}
-            <div className="p-6 border-b border-[#162447] bg-[#0A1128]">
-                <Link to="/" className="flex items-center gap-3 group">
-                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-cyan-600 via-blue-600 to-emerald-400 p-0.5 shadow-lg shadow-cyan-500/20 group-hover:scale-105 transition">
-                        <div className="w-full h-full bg-[#080E21] rounded-[14px] flex items-center justify-center">
-                            <ShieldCheck className="w-6 h-6 text-cyan-400" />
-                        </div>
-                    </div>
-                    <div>
-                        <div className="flex items-center gap-1">
-                            <span className="font-black text-lg text-white tracking-wider">CyberLoy</span>
-                            <span className="text-[10px] font-mono font-bold bg-cyan-950 text-cyan-400 border border-cyan-800 px-1.5 py-0.2 rounded">LMS</span>
-                        </div>
-                        <span className="text-[11px] font-mono text-emerald-400 font-semibold block">
-                            {isAdminUser ? 'Admin Portal' : 'Student Portal'}
-                        </span>
-                    </div>
+            <div className="p-4 border-b border-[#162447] bg-[#0A1128]">
+                <Link to="/" className="flex items-center gap-3 group w-full">
+                    <img
+                        src={logoUrl}
+                        alt="CyberLoy"
+                        className="h-full w-full object-contain transition-transform group-hover:scale-105"
+                    />
                 </Link>
             </div>
 
@@ -178,42 +172,20 @@ export default function PortalSidebar({ activeTab, setActiveTab, paymentsCount =
                             </div>
                         </Link>
 
-                        {/* 5. Student Services (Collapsible) */}
-                        <div>
-                            <button
-                                onClick={() => setStudentServicesOpen(!studentServicesOpen)}
-                                className="w-full flex items-center justify-between px-4 py-3 rounded-xl font-semibold text-slate-300 hover:bg-[#0F1C3F] hover:text-white transition"
-                            >
-                                <div className="flex items-center gap-3.5">
-                                    <Wrench className="w-5 h-5 text-cyan-400 shrink-0" />
-                                    <span>Student Services</span>
-                                </div>
-                                {studentServicesOpen ? (
-                                    <ChevronDown className="w-4 h-4 text-slate-400" />
-                                ) : (
-                                    <ChevronRight className="w-4 h-4 text-slate-400" />
-                                )}
-                            </button>
-
-                            {studentServicesOpen && (
-                                <div className="ml-9 mt-1 space-y-1 pl-2 border-l border-[#1A2C5A]">
-                                    <button
-                                        onClick={() => {
-                                            if (location.pathname !== '/admin') navigate('/admin');
-                                            if (setActiveTab) setActiveTab('users');
-                                        }}
-                                        className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium transition text-left ${
-                                            activeTab === 'users'
-                                                ? 'bg-[#16244A] text-cyan-300 font-bold'
-                                                : 'text-slate-400 hover:text-slate-100 hover:bg-[#0F1C3F]'
-                                        }`}
-                                    >
-                                        <Users className="w-3.5 h-3.5 text-cyan-400" />
-                                        <span>Users & Student Management</span>
-                                    </button>
-                                </div>
-                            )}
-                        </div>
+                        {/* 5. Student Management */}
+                        <Link
+                            to="/admin/students"
+                            className={`w-full flex items-center justify-between px-4 py-3 rounded-xl font-semibold transition-all ${
+                                location.pathname === '/admin/students'
+                                    ? 'bg-[#16244A] text-white border-l-4 border-cyan-400 shadow-md'
+                                    : 'text-slate-300 hover:bg-[#0F1C3F] hover:text-white'
+                            }`}
+                        >
+                            <div className="flex items-center gap-3.5">
+                                <Users className="w-5 h-5 text-cyan-400 shrink-0" />
+                                <span>Student Management</span>
+                            </div>
+                        </Link>
 
                         {/* 6. Emergency Incident Escalation Tickets */}
                         <button
@@ -227,10 +199,7 @@ export default function PortalSidebar({ activeTab, setActiveTab, paymentsCount =
                                     : 'text-slate-300 hover:bg-[#0F1C3F] hover:text-white'
                             }`}
                         >
-                            <div className="flex items-center gap-3.5">
-                                <ShieldAlert className="w-5 h-5 text-rose-400 shrink-0" />
-                                <span>Emergency Incident Requests</span>
-                            </div>
+                            
                         </button>
 
                         {/* 7. All Courses */}
@@ -299,7 +268,15 @@ export default function PortalSidebar({ activeTab, setActiveTab, paymentsCount =
                     </>
                 )}
 
-                <div className="pt-6 border-t border-[#162447] mt-4">
+                <div className="pt-6 border-t border-[#162447] mt-4 space-y-1.5">
+                    <button
+                        onClick={() => setShowEmergencyModal(true)}
+                        className="w-full flex items-center gap-3.5 px-4 py-3 rounded-xl font-semibold text-rose-300 hover:bg-rose-950/40 hover:text-rose-200 transition bg-rose-950/20 border border-rose-800/50"
+                    >
+                        <ShieldAlert className="w-5 h-5 shrink-0" />
+                        <span>Emergency Support</span>
+                    </button>
+
                     {/* Logout */}
                     <button
                         onClick={handleLogout}
@@ -323,6 +300,11 @@ export default function PortalSidebar({ activeTab, setActiveTab, paymentsCount =
                     </div>
                 </div>
             )}
+
+            <EmergencySupportModal
+                isOpen={showEmergencyModal}
+                onClose={() => setShowEmergencyModal(false)}
+            />
         </aside>
     );
 }

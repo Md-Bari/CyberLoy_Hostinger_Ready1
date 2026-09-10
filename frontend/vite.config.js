@@ -379,7 +379,7 @@ export default defineConfig({
 		addTransformIndexHtml
 	],
 	server: {
-		port: 3000,
+		port: 3035,
 		cors: true,
 		allowedHosts: true,
 		fs: {

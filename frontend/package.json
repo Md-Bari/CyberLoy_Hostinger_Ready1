@@ -4,9 +4,9 @@
 	"version": "0.0.0",
 	"private": true,
 	"scripts": {
-		"dev": "vite --host :: --port 3000",
+		"dev": "vite --host :: --port 3035",
 		"build": "vite build",
-		"start": "vite preview --host :: --port 3000",
+		"start": "vite preview --host :: --port 3035",
 		"lint": "eslint . --quiet"
 	},
 	"dependencies": {

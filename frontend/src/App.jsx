@@ -10,6 +10,7 @@ import CourseListPage from './pages/CourseListPage';
 import CourseDetailPage from './pages/CourseDetailPage';
 import LearnCoursePage from './pages/LearnCoursePage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
+import StudentDirectoryPage from './pages/StudentDirectoryPage';
 import CourseBuilderPage from './pages/CourseBuilderPage';
 import CertificatesPage from './pages/CertificatesPage';
 import CertificateVerificationPage from './pages/CertificateVerificationPage';
@@ -109,6 +110,16 @@ function AppContent() {
                     element={
                         <ProtectedRoute adminOnly>
                             <LMSLayout><AdminDashboardPage /></LMSLayout>
+                        </ProtectedRoute>
+                    }
+                />
+
+                {/* Student Directory */}
+                <Route
+                    path="/admin/students"
+                    element={
+                        <ProtectedRoute adminOnly>
+                            <LMSLayout><StudentDirectoryPage /></LMSLayout>
                         </ProtectedRoute>
                     }
                 />
