@@ -12,13 +12,9 @@ return [
 
     'allowed_methods' => ['*'],
 
-    'allowed_origins' => array_values(array_filter(array_map(function ($origin) {
-        return trim($origin);
-    }, explode(',', env('CORS_ALLOWED_ORIGINS', 'http://localhost:3035,http://localhost:3000,http://localhost:5173,http://127.0.0.1:3035,http://127.0.0.1:3000,http://127.0.0.1:5173'))))),
+    'allowed_origins' => ['*'],
 
-    'allowed_origins_patterns' => [
-        '#.*\.trycloudflare\.com$#',
-    ],
+    'allowed_origins_patterns' => [],
 
     'allowed_headers' => ['*'],
 

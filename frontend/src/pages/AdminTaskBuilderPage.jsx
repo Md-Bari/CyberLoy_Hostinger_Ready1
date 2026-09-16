@@ -44,6 +44,10 @@ export default function AdminTaskBuilderPage() {
 
     const [allUsers, setAllUsers] = useState([]);
     const [selectedUserIds, setSelectedUserIds] = useState([]);
+    const [userSearchTerm, setUserSearchTerm] = useState('');
+    const [matrixSearch, setMatrixSearch] = useState('');
+    const [matrixPage, setMatrixPage] = useState(1);
+    const [matrixPerPage, setMatrixPerPage] = useState(4);
 
     useEffect(() => {
         loadPlans();
@@ -67,8 +71,6 @@ export default function AdminTaskBuilderPage() {
         }
     };
 
-    const [userSearchTerm, setUserSearchTerm] = useState('');
-
     const loadAllUsers = async () => {
         try {
             const res = await api.getAdminUsersList();
@@ -77,7 +79,6 @@ export default function AdminTaskBuilderPage() {
             console.error('Failed to load user list:', err);
         }
     };
-
 
     const loadPlanDetails = async (planId) => {
         try {
@@ -101,13 +102,15 @@ export default function AdminTaskBuilderPage() {
         setActionLoading(true);
         try {
             const res = await api.createProjectPlan(newPlanForm);
-            setSuccessMsg('Project Plan created successfully!');
+            setSuccessMsg('Project plan created successfully!');
             setShowNewPlanModal(false);
-            loadPlans();
-            setSelectedPlanId(res.plan.id);
-            loadPlanDetails(res.plan.id);
+            await loadPlans();
+            if (res.plan) {
+                setSelectedPlanId(res.plan.id);
+                loadPlanDetails(res.plan.id);
+            }
         } catch (err) {
-            setError(err.message || 'Failed to create plan');
+            alert(err.message || 'Failed to create plan');
         } finally {
             setActionLoading(false);
         }
@@ -115,158 +118,176 @@ export default function AdminTaskBuilderPage() {
 
     const handleSaveTask = async (e) => {
         e.preventDefault();
-        if (!selectedPlanId) return;
         setActionLoading(true);
         try {
             if (editingTask) {
                 await api.updateProjectTask(editingTask.id, taskForm);
-                setSuccessMsg('Task updated successfully!');
+                setSuccessMsg('Task row updated successfully!');
             } else {
                 await api.addProjectTask(selectedPlanId, taskForm);
-                setSuccessMsg('Task added successfully!');
+                setSuccessMsg('New task row inserted!');
             }
             setShowNewTaskModal(false);
             setEditingTask(null);
-            setTaskForm({ phase: 'Implementation phase', prefix: '', title: '', details: '', comments: '' });
             loadPlanDetails(selectedPlanId);
         } catch (err) {
-            setError(err.message || 'Failed to save task');
+            alert(err.message || 'Failed to save task');
         } finally {
             setActionLoading(false);
         }
     };
 
     const handleDeleteTask = async (taskId) => {
-        if (!window.confirm('Are you sure you want to delete this row?')) return;
+        if (!window.confirm('Delete this task row from the plan?')) return;
         try {
             await api.deleteProjectTask(taskId);
-            setSuccessMsg('Task row deleted!');
+            setSuccessMsg('Task row deleted.');
             loadPlanDetails(selectedPlanId);
         } catch (err) {
-            setError(err.message || 'Failed to delete task');
+            alert(err.message || 'Failed to delete task');
         }
     };
 
     const handleAssignUsers = async () => {
-        if (!selectedPlanId) return;
         setActionLoading(true);
         try {
             await api.assignUsersToProjectPlan(selectedPlanId, selectedUserIds);
-            setSuccessMsg('Assigned users updated!');
+            setSuccessMsg('Student assignments updated successfully!');
             setShowAssignModal(false);
             loadPlanDetails(selectedPlanId);
         } catch (err) {
-            setError(err.message || 'Failed to assign users');
+            alert(err.message || 'Failed to update assignments');
         } finally {
             setActionLoading(false);
         }
     };
 
-    const handleAdminUpdateUserProgress = async (userId, taskId, pct) => {
+    const handleAdminUpdateUserProgress = async (userId, taskId, progressVal) => {
         try {
             await api.adminUpdateUserTaskProgress(selectedPlanId, userId, {
                 task_id: taskId,
-                progress_percentage: pct,
+                progress_percentage: progressVal,
             });
             loadPlanDetails(selectedPlanId);
         } catch (err) {
-            console.error('Failed to update progress:', err);
+            console.error('Failed to update student progress:', err);
         }
     };
 
-    if (loading) {
+    if (loading && plans.length === 0) {
         return (
-            <div className="min-h-[70vh] flex items-center justify-center text-emerald-400 font-mono text-sm">
-                <RefreshCw className="w-5 h-5 animate-spin mr-2" /> Loading Excel Spreadsheet Engine...
+            <div className="min-h-[70vh] flex flex-col items-center justify-center gap-3 bg-[#f4f7fb] text-slate-500">
+                <div className="w-10 h-10 rounded-full border-3 border-slate-200 border-t-cyan-600 animate-spin" />
+                <p className="text-xs font-semibold">Loading ISO 27001 Task Builder...</p>
             </div>
         );
     }
 
     const currentPlan = planData?.plan;
-    const tasks = currentPlan?.tasks || [];
+    const tasks = planData?.tasks || [];
     const userSummaries = planData?.user_summaries || [];
 
-    // Group tasks by phase
-    const groupedPhases = tasks.reduce((acc, t) => {
-        if (!acc[t.phase]) acc[t.phase] = [];
-        acc[t.phase].push(t);
+    const filteredUserSummaries = userSummaries.filter((s) => {
+        if (!matrixSearch.trim()) return true;
+        const q = matrixSearch.toLowerCase();
+        return s.user.name?.toLowerCase().includes(q) || s.user.email?.toLowerCase().includes(q);
+    });
+
+    const totalMatrixPages = Math.ceil(filteredUserSummaries.length / matrixPerPage) || 1;
+    const paginatedUserSummaries = filteredUserSummaries.slice(
+        (matrixPage - 1) * matrixPerPage,
+        matrixPage * matrixPerPage
+    );
+
+    // Group tasks by phase for structured spreadsheet sections
+    const groupedPhases = tasks.reduce((acc, task) => {
+        const phase = task.phase || 'General Phase';
+        if (!acc[phase]) acc[phase] = [];
+        acc[phase].push(task);
         return acc;
     }, {});
 
     return (
-        <div className="min-h-screen bg-slate-950 text-slate-100 p-4 sm:p-6 lg:p-8 space-y-6">
-            {/* Top Toolbar Header */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-900 border border-emerald-900/60 rounded-2xl p-5 shadow-2xl relative overflow-hidden">
-                <div className="space-y-1 z-10">
-                    <div className="flex items-center gap-2">
-                        <Link to="/admin" className="text-slate-400 hover:text-emerald-400 transition text-xs font-mono flex items-center gap-1">
-                            <ArrowLeft className="w-3.5 h-3.5" /> Back to Admin
-                        </Link>
-                        <span className="text-slate-700">•</span>
-                        <span className="px-2.5 py-0.5 rounded-full bg-emerald-950 text-emerald-400 border border-emerald-800 text-[10px] font-mono font-bold uppercase tracking-wider flex items-center gap-1">
-                            <Table className="w-3 h-3" /> Excel Spreadsheet Mode
-                        </span>
+        <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-[1600px] mx-auto bg-[#f4f7fb] text-slate-800 min-h-screen">
+            {/* Top Page Header Card */}
+            <div className="rounded-2xl bg-white border border-slate-200/80 p-6 sm:p-8 shadow-sm">
+                <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+                    <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                            <Link to="/admin" className="text-slate-500 hover:text-blue-600 transition text-xs font-semibold flex items-center gap-1">
+                                <ArrowLeft className="w-3.5 h-3.5" /> Back to Admin
+                            </Link>
+                            <span className="text-slate-300">•</span>
+                            <span className="px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 text-[11px] font-semibold flex items-center gap-1">
+                                <Table className="w-3 h-3" /> Excel Spreadsheet Mode
+                            </span>
+                        </div>
+                        <h1 className="text-2xl sm:text-3xl font-extrabold text-[#0f172a] tracking-tight flex items-center gap-2.5">
+                            <ShieldCheck className="w-7 h-7 text-blue-600" />
+                            <span>ISO 27001 Project Plan Task Builder</span>
+                        </h1>
+                        <p className="text-xs sm:text-sm text-slate-500 max-w-2xl leading-relaxed">
+                            Structured compliance guidance, assignable implementation tasks, and progress matrices mirroring ISO 27001 standards.
+                        </p>
                     </div>
-                    <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight flex items-center gap-2">
-                        <ShieldCheck className="w-7 h-7 text-emerald-400" />
-                        Project Plan Task Management & Builder
-                    </h1>
-                </div>
 
-                <div className="flex items-center gap-3 shrink-0 z-10">
-                    <button
-                        onClick={() => setShowNewPlanModal(true)}
-                        className="px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs flex items-center gap-2 shadow-lg shadow-emerald-950/50 transition"
-                    >
-                        <Plus className="w-4 h-4" />
-                        <span>Create New Plan</span>
-                    </button>
+                    <div className="flex items-center gap-3 shrink-0">
+                        <button
+                            onClick={() => setShowNewPlanModal(true)}
+                            className="px-4 py-2.5 rounded-xl bg-[#0f172a] hover:bg-[#1e293b] text-white font-bold text-xs flex items-center gap-2 shadow-sm transition"
+                        >
+                            <Plus className="w-4 h-4 text-cyan-400" />
+                            <span>Create New Plan</span>
+                        </button>
+                    </div>
                 </div>
             </div>
 
             {/* Notification Messages */}
             {successMsg && (
-                <div className="p-3 bg-emerald-950/90 border border-emerald-800 rounded-xl text-emerald-300 text-xs font-semibold flex items-center justify-between animate-in fade-in">
+                <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-xs font-semibold flex items-center justify-between shadow-sm animate-in fade-in">
                     <span>{successMsg}</span>
-                    <button onClick={() => setSuccessMsg('')} className="text-emerald-400 hover:text-emerald-200">✕</button>
+                    <button onClick={() => setSuccessMsg('')} className="text-emerald-600 hover:text-emerald-900 font-bold">✕</button>
                 </div>
             )}
 
             {/* Excel Sheet Selector & View Mode Tabs */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="flex items-center gap-2 overflow-x-auto">
                     {plans.map((p) => (
                         <button
                             key={p.id}
                             onClick={() => handleSelectPlan(p.id)}
-                            className={`px-4 py-2 rounded-xl text-xs font-mono font-bold transition flex items-center gap-2 ${
+                            className={`px-4 py-2 rounded-xl text-xs font-semibold transition flex items-center gap-2 shadow-sm ${
                                 selectedPlanId === p.id
-                                    ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/40 shadow-sm'
-                                    : 'bg-slate-900 text-slate-400 hover:bg-slate-800 hover:text-slate-200 border border-slate-800'
+                                    ? 'bg-[#0f172a] text-white'
+                                    : 'bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900 border border-slate-200/80'
                             }`}
                         >
-                            <Table className="w-3.5 h-3.5 text-emerald-400" />
+                            <Table className="w-3.5 h-3.5 text-blue-500" />
                             <span>{p.title}</span>
-                            <span className="px-2 py-0.5 rounded-full bg-slate-950 text-[10px] text-slate-400 border border-slate-800">
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                selectedPlanId === p.id ? 'bg-slate-800 text-cyan-400' : 'bg-slate-100 text-slate-600'
+                            }`}>
                                 {p.tasks_count || 0} rows
                             </span>
                         </button>
                     ))}
                 </div>
 
-                <div className="flex items-center gap-2 bg-slate-900 p-1 rounded-xl border border-slate-800 shrink-0">
+                <div className="flex items-center gap-1 bg-white p-1 rounded-xl border border-slate-200 shadow-sm shrink-0">
                     <button
                         onClick={() => setActiveTab('sheet')}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-mono font-semibold transition flex items-center gap-1.5 ${
-                            activeTab === 'sheet' ? 'bg-emerald-500 text-slate-950 font-bold' : 'text-slate-400 hover:text-white'
+                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${
+                            activeTab === 'sheet' ? 'bg-[#0f172a] text-white shadow-sm' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
                         }`}
                     >
                         <Table className="w-3.5 h-3.5" /> Spreadsheet View
                     </button>
                     <button
                         onClick={() => setActiveTab('matrix')}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-mono font-semibold transition flex items-center gap-1.5 ${
-                            activeTab === 'matrix' ? 'bg-emerald-500 text-slate-950 font-bold' : 'text-slate-400 hover:text-white'
+                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${
+                            activeTab === 'matrix' ? 'bg-[#0f172a] text-white shadow-sm' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
                         }`}
                     >
                         <Users className="w-3.5 h-3.5" /> Student Progress Matrix
@@ -277,15 +298,15 @@ export default function AdminTaskBuilderPage() {
             {currentPlan && (
                 <div className="space-y-6">
                     {/* Excel Header Information Box (Matching ISO 27001 Spreadsheet Metadata Header) */}
-                    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-2xl space-y-4">
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-3">
+                    <div className="bg-white border border-slate-200/80 rounded-2xl p-6 shadow-sm space-y-4">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
                             <div className="flex items-center gap-3">
-                                <div className="p-2 rounded-xl bg-emerald-950 border border-emerald-800 text-emerald-400">
+                                <div className="p-2.5 rounded-xl bg-blue-50 border border-blue-100 text-blue-600">
                                     <ShieldCheck className="w-6 h-6" />
                                 </div>
                                 <div>
-                                    <h2 className="text-lg font-bold text-white tracking-tight">{currentPlan.title}</h2>
-                                    <p className="text-xs font-mono text-emerald-400/90 mt-0.5">
+                                    <h2 className="text-lg font-bold text-[#0f172a] tracking-tight">{currentPlan.title}</h2>
+                                    <p className="text-xs text-slate-500 mt-0.5">
                                         Pro tip ➜ Update task status every week. Guidance & columns mirror ISO 27001 standards.
                                     </p>
                                 </div>
@@ -294,9 +315,9 @@ export default function AdminTaskBuilderPage() {
                             <div className="flex items-center gap-2">
                                 <button
                                     onClick={() => setShowAssignModal(true)}
-                                    className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-mono font-semibold flex items-center gap-1.5 border border-slate-700 transition"
+                                    className="px-3.5 py-2 rounded-xl bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold flex items-center gap-1.5 border border-slate-200 shadow-sm transition"
                                 >
-                                    <Users className="w-4 h-4 text-emerald-400" />
+                                    <Users className="w-4 h-4 text-blue-600" />
                                     <span>Assigned Students ({currentPlan.assigned_users?.length || 0})</span>
                                 </button>
                                 <button
@@ -305,119 +326,123 @@ export default function AdminTaskBuilderPage() {
                                         setTaskForm({ phase: 'Implementation phase', prefix: '', title: '', details: '', comments: '' });
                                         setShowNewTaskModal(true);
                                     }}
-                                    className="px-3.5 py-2 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 text-xs font-mono font-bold flex items-center gap-1.5 border border-emerald-500/30 transition"
+                                    className="px-3.5 py-2 rounded-xl bg-[#0f172a] hover:bg-[#1e293b] text-white text-xs font-bold flex items-center gap-1.5 shadow-sm transition"
                                 >
-                                    <Plus className="w-4 h-4" />
+                                    <Plus className="w-4 h-4 text-cyan-400" />
                                     <span>Insert Row</span>
                                 </button>
                             </div>
                         </div>
 
-                        {/* Excel Header Metadata Grid */}
-                        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 text-xs font-mono">
-                            <div className="bg-slate-950 p-2.5 rounded-xl border border-slate-800">
-                                <span className="text-slate-500 block text-[10px] uppercase font-bold">STANDARD</span>
-                                <span className="text-emerald-400 font-bold">{currentPlan.standard}</span>
+                        {/* Excel Header Metadata Grid (Clean White Small Cards) */}
+                        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 text-xs">
+                            <div className="bg-[#f8fafc] p-3 rounded-xl border border-slate-200/80">
+                                <span className="text-slate-400 block text-[10px] uppercase font-bold tracking-wider">STANDARD</span>
+                                <span className="text-blue-700 font-bold text-sm">{currentPlan.standard}</span>
                             </div>
-                            <div className="bg-slate-950 p-2.5 rounded-xl border border-slate-800">
-                                <span className="text-slate-500 block text-[10px] uppercase font-bold">COMPANY NAME</span>
-                                <span className="text-white font-bold truncate block">{currentPlan.company_name || 'CyberLoy'}</span>
+                            <div className="bg-[#f8fafc] p-3 rounded-xl border border-slate-200/80">
+                                <span className="text-slate-400 block text-[10px] uppercase font-bold tracking-wider">COMPANY NAME</span>
+                                <span className="text-[#0f172a] font-bold text-sm truncate block">{currentPlan.company_name || 'CyberLoy'}</span>
                             </div>
-                            <div className="bg-slate-950 p-2.5 rounded-xl border border-slate-800">
-                                <span className="text-slate-500 block text-[10px] uppercase font-bold">PROJECT OWNER</span>
-                                <span className="text-white font-bold truncate block">{currentPlan.project_owner || 'CISO'}</span>
+                            <div className="bg-[#f8fafc] p-3 rounded-xl border border-slate-200/80">
+                                <span className="text-slate-400 block text-[10px] uppercase font-bold tracking-wider">PROJECT OWNER</span>
+                                <span className="text-[#0f172a] font-bold text-sm truncate block">{currentPlan.project_owner || 'CISO'}</span>
                             </div>
-                            <div className="bg-slate-950 p-2.5 rounded-xl border border-slate-800">
-                                <span className="text-slate-500 block text-[10px] uppercase font-bold">DURATION</span>
-                                <span className="text-white font-bold">{currentPlan.weeks_duration} Weeks</span>
+                            <div className="bg-[#f8fafc] p-3 rounded-xl border border-slate-200/80">
+                                <span className="text-slate-400 block text-[10px] uppercase font-bold tracking-wider">DURATION</span>
+                                <span className="text-[#0f172a] font-bold text-sm">{currentPlan.weeks_duration} Weeks</span>
                             </div>
-                            <div className="bg-slate-950 p-2.5 rounded-xl border border-slate-800">
-                                <span className="text-slate-500 block text-[10px] uppercase font-bold">TOTAL ROWS</span>
-                                <span className="text-cyan-400 font-bold">{tasks.length} Tasks</span>
+                            <div className="bg-[#f8fafc] p-3 rounded-xl border border-slate-200/80">
+                                <span className="text-slate-400 block text-[10px] uppercase font-bold tracking-wider">TOTAL ROWS</span>
+                                <span className="text-blue-600 font-bold text-sm">{tasks.length} Tasks</span>
                             </div>
-                            <div className="bg-slate-950 p-2.5 rounded-xl border border-slate-800">
-                                <span className="text-slate-500 block text-[10px] uppercase font-bold">ASSIGNED USERS</span>
-                                <span className="text-emerald-400 font-bold">{currentPlan.assigned_users?.length || 0} Users</span>
+                            <div className="bg-[#f8fafc] p-3 rounded-xl border border-slate-200/80">
+                                <span className="text-slate-400 block text-[10px] uppercase font-bold tracking-wider">ASSIGNED USERS</span>
+                                <span className="text-emerald-700 font-bold text-sm">{currentPlan.assigned_users?.length || 0} Users</span>
                             </div>
-                            <div className="bg-slate-950 p-2.5 rounded-xl border border-slate-800 col-span-2 sm:col-span-1">
-                                <span className="text-slate-500 block text-[10px] uppercase font-bold">STATUS</span>
-                                <span className="text-emerald-400 font-bold flex items-center gap-1">
-                                    <CheckCircle className="w-3.5 h-3.5" /> Active Sheet
+                            <div className="bg-[#f8fafc] p-3 rounded-xl border border-slate-200/80 col-span-2 sm:col-span-1">
+                                <span className="text-slate-400 block text-[10px] uppercase font-bold tracking-wider">STATUS</span>
+                                <span className="text-emerald-700 font-bold text-sm flex items-center gap-1">
+                                    <CheckCircle className="w-3.5 h-3.5 text-emerald-600" /> Active Sheet
                                 </span>
                             </div>
                         </div>
                     </div>
 
-                    {/* View 1: Authentic Excel Spreadsheet Data Grid */}
+                    {/* View 1: Authentic Clean Excel Spreadsheet Data Grid */}
                     {activeTab === 'sheet' && (
-                        <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl">
+                        <div className="bg-white border border-slate-200/80 rounded-2xl overflow-hidden shadow-sm">
                             <div className="overflow-x-auto">
-                                <table className="w-full text-left border-collapse font-sans text-xs">
+                                <table className="w-full text-left border-collapse text-xs text-slate-700">
                                     {/* Excel Table Column Headers */}
                                     <thead>
-                                        <tr className="bg-slate-950 text-slate-400 font-mono text-[11px] uppercase tracking-wider border-b border-slate-800">
-                                            <th className="py-3 px-4 w-12 text-center border-r border-slate-800">Row</th>
-                                            <th className="py-3 px-4 w-28 border-r border-slate-800">Prefix</th>
-                                            <th className="py-3 px-4 w-64 border-r border-slate-800">Tasks</th>
-                                            <th className="py-3 px-4 border-r border-slate-800">Details & Guidance</th>
-                                            <th className="py-3 px-4 w-44 border-r border-slate-800 text-center">Phase</th>
-                                            <th className="py-3 px-4 w-56 border-r border-slate-800">Comments / Notes</th>
-                                            <th className="py-3 px-4 w-24 text-center">Actions</th>
+                                        <tr className="bg-[#f8fafc] text-slate-500 font-bold text-[10px] uppercase tracking-wider border-b border-slate-200">
+                                            <th className="py-3.5 px-4 w-12 text-center border-r border-slate-200">Row</th>
+                                            <th className="py-3.5 px-4 w-28 border-r border-slate-200">Prefix</th>
+                                            <th className="py-3.5 px-4 w-64 border-r border-slate-200">Tasks</th>
+                                            <th className="py-3.5 px-4 border-r border-slate-200">Details & Guidance</th>
+                                            <th className="py-3.5 px-4 w-44 border-r border-slate-200 text-center">Phase</th>
+                                            <th className="py-3.5 px-4 w-56 border-r border-slate-200">Comments / Notes</th>
+                                            <th className="py-3.5 px-4 w-24 text-center">Actions</th>
                                         </tr>
                                     </thead>
 
-                                    <tbody className="divide-y divide-slate-800/80 font-sans">
+                                    <tbody className="divide-y divide-slate-100">
                                         {Object.entries(groupedPhases).map(([phaseName, phaseTasks], phaseIdx) => (
                                             <React.Fragment key={phaseName}>
-                                                {/* Phase Group Header Row (Excel Section Divider Style) */}
-                                                <tr className="bg-emerald-950/40 text-emerald-300 font-mono font-bold text-xs border-y border-emerald-900/60">
-                                                    <td colSpan="7" className="py-2.5 px-4 flex items-center justify-between">
-                                                        <div className="flex items-center gap-2">
-                                                            <Layers className="w-4 h-4 text-emerald-400" />
-                                                            <span>PHASE {phaseIdx + 1}: {phaseName.toUpperCase()}</span>
+                                                {/* Phase Group Header Row */}
+                                                <tr className="bg-blue-50/60 text-blue-900 font-bold text-xs border-y border-blue-100">
+                                                    <td colSpan="7" className="py-2.5 px-4">
+                                                        <div className="flex items-center justify-between">
+                                                            <div className="flex items-center gap-2">
+                                                                <Layers className="w-4 h-4 text-blue-600" />
+                                                                <span>PHASE {phaseIdx + 1}: {phaseName.toUpperCase()}</span>
+                                                            </div>
+                                                            <span className="text-[10px] bg-white border border-blue-200 px-2 py-0.5 rounded-full text-blue-700 font-semibold shadow-xs">
+                                                                {phaseTasks.length} Task Rows
+                                                            </span>
                                                         </div>
-                                                        <span className="text-[10px] bg-emerald-950 border border-emerald-800 px-2 py-0.5 rounded">
-                                                            {phaseTasks.length} Task Rows
-                                                        </span>
                                                     </td>
                                                 </tr>
 
                                                 {/* Task Rows in Phase */}
                                                 {phaseTasks.map((t, index) => (
-                                                    <tr key={t.id} className="hover:bg-slate-800/50 transition group border-b border-slate-800/60">
+                                                    <tr key={t.id} className="hover:bg-slate-50/80 transition group border-b border-slate-100">
                                                         {/* Row # */}
-                                                        <td className="py-3 px-4 text-center font-mono text-slate-500 border-r border-slate-800/80 bg-slate-950/40">
+                                                        <td className="py-3 px-4 text-center font-bold text-slate-400 border-r border-slate-100 bg-[#f8fafc]/50">
                                                             {t.sort_order || index + 1}
                                                         </td>
 
                                                         {/* Prefix */}
-                                                        <td className="py-3 px-4 font-mono font-bold text-emerald-400 border-r border-slate-800/80">
+                                                        <td className="py-3 px-4 font-bold text-blue-600 border-r border-slate-100">
                                                             {t.prefix || `${phaseIdx + 1}.${index + 1}`}
                                                         </td>
 
                                                         {/* Task Title */}
-                                                        <td className="py-3 px-4 font-semibold text-slate-100 border-r border-slate-800/80">
+                                                        <td className="py-3 px-4 font-bold text-[#0f172a] border-r border-slate-100">
                                                             {t.title}
                                                         </td>
 
                                                         {/* Details */}
-                                                        <td className="py-3 px-4 text-slate-300 text-[11px] leading-relaxed border-r border-slate-800/80">
-                                                            {t.details || <span className="text-slate-600 italic">No details</span>}
+                                                        <td className="py-3 px-4 text-slate-600 text-[11px] leading-relaxed border-r border-slate-100">
+                                                            {t.details || <span className="text-slate-400 italic">No details provided</span>}
                                                         </td>
 
                                                         {/* Phase Name Tag */}
-                                                        <td className="py-3 px-4 border-r border-slate-800/80 text-center">
-                                                            <span className="text-[10px] font-mono bg-slate-950 text-slate-400 px-2 py-1 rounded border border-slate-800 block truncate">
+                                                        <td className="py-3 px-4 border-r border-slate-100 text-center">
+                                                            <span className="text-[10px] font-semibold bg-slate-100 text-slate-600 px-2.5 py-1 rounded-full border border-slate-200 inline-block truncate max-w-[140px]">
                                                                 {t.phase}
                                                             </span>
                                                         </td>
 
                                                         {/* Comments */}
-                                                        <td className="py-3 px-4 text-amber-300/80 font-mono text-[11px] border-r border-slate-800/80">
+                                                        <td className="py-3 px-4 text-slate-600 text-[11px] border-r border-slate-100">
                                                             {t.comments ? (
-                                                                <span>💬 {t.comments}</span>
+                                                                <span className="font-medium text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-100">
+                                                                    💬 {t.comments}
+                                                                </span>
                                                             ) : (
-                                                                <span className="text-slate-600 italic">-</span>
+                                                                <span className="text-slate-300">-</span>
                                                             )}
                                                         </td>
 
@@ -436,14 +461,14 @@ export default function AdminTaskBuilderPage() {
                                                                         });
                                                                         setShowNewTaskModal(true);
                                                                     }}
-                                                                    className="p-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 transition"
+                                                                    className="p-1.5 rounded-lg bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 shadow-sm transition"
                                                                     title="Edit Row"
                                                                 >
                                                                     <Edit2 className="w-3.5 h-3.5" />
                                                                 </button>
                                                                 <button
                                                                     onClick={() => handleDeleteTask(t.id)}
-                                                                    className="p-1 rounded bg-red-950/60 hover:bg-red-900/80 text-red-400 transition border border-red-800/60"
+                                                                    className="p-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 shadow-sm transition"
                                                                     title="Delete Row"
                                                                 >
                                                                     <Trash2 className="w-3.5 h-3.5" />
@@ -462,52 +487,71 @@ export default function AdminTaskBuilderPage() {
 
                     {/* View 2: Student Progress Matrix */}
                     {activeTab === 'matrix' && (
-                        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl space-y-6">
-                            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+                        <div className="bg-white border border-slate-200/80 rounded-2xl p-6 shadow-sm space-y-6">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-100 pb-4 gap-4">
                                 <div>
-                                    <h3 className="text-base font-bold text-white flex items-center gap-2">
-                                        <Users className="w-5 h-5 text-emerald-400" />
+                                    <h3 className="text-base font-bold text-[#0f172a] flex items-center gap-2">
+                                        <Users className="w-5 h-5 text-blue-600" />
                                         <span>Student Task Completion Matrix</span>
                                     </h3>
-                                    <p className="text-xs text-slate-400 font-mono mt-0.5">
+                                    <p className="text-xs text-slate-500 mt-0.5">
                                         View and manage task progress percentages for every assigned user.
                                     </p>
                                 </div>
-                                <button
-                                    onClick={() => setShowAssignModal(true)}
-                                    className="px-3 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 font-bold text-xs font-mono border border-emerald-500/30"
-                                >
-                                    Assign Students
-                                </button>
+                                <div className="flex items-center gap-3">
+                                    <div className="relative w-48 sm:w-64">
+                                        <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                                        <input
+                                            type="text"
+                                            value={matrixSearch}
+                                            onChange={(e) => {
+                                                setMatrixSearch(e.target.value);
+                                                setMatrixPage(1);
+                                            }}
+                                            placeholder="Search student..."
+                                            className="w-full bg-[#f8fafc] border border-slate-200 rounded-xl pl-9 pr-3 py-1.5 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-blue-500 shadow-xs"
+                                        />
+                                    </div>
+                                    <button
+                                        onClick={() => setShowAssignModal(true)}
+                                        className="px-3.5 py-2 rounded-xl bg-blue-50 text-blue-700 font-bold text-xs border border-blue-200 hover:bg-blue-100 transition shadow-sm shrink-0"
+                                    >
+                                        Assign Students
+                                    </button>
+                                </div>
                             </div>
 
                             {userSummaries.length === 0 ? (
-                                <div className="p-8 text-center text-slate-500 font-mono text-xs">
-                                    No students assigned to this project plan yet.
+                                <div className="p-8 text-center text-slate-400 text-xs">
+                                    No students assigned to this project plan yet. Click "Assign Students" to allocate tasks.
+                                </div>
+                            ) : filteredUserSummaries.length === 0 ? (
+                                <div className="p-8 text-center text-slate-400 text-xs">
+                                    No assigned students match "{matrixSearch}".
                                 </div>
                             ) : (
                                 <div className="space-y-6">
-                                    {userSummaries.map((summary) => (
-                                        <div key={summary.user.id} className="bg-slate-950 rounded-2xl p-5 border border-slate-800 space-y-4">
+                                    {paginatedUserSummaries.map((summary) => (
+                                        <div key={summary.user.id} className="bg-[#f8fafc] rounded-2xl p-5 border border-slate-200/80 space-y-4 shadow-sm">
                                             <div className="flex items-center justify-between">
                                                 <div className="flex items-center gap-3">
-                                                    <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-emerald-600 to-cyan-600 text-white font-bold flex items-center justify-center text-xs shadow-md">
+                                                    <div className="w-9 h-9 rounded-full bg-[#0f172a] text-white font-bold flex items-center justify-center text-xs shadow-sm">
                                                         {summary.user.name?.charAt(0).toUpperCase()}
                                                     </div>
                                                     <div>
-                                                        <h4 className="text-sm font-bold text-white">{summary.user.name}</h4>
-                                                        <span className="text-xs text-slate-500 font-mono">{summary.user.email}</span>
+                                                        <h4 className="text-sm font-bold text-[#0f172a]">{summary.user.name}</h4>
+                                                        <span className="text-xs text-slate-500">{summary.user.email}</span>
                                                     </div>
                                                 </div>
 
                                                 <div className="flex items-center gap-3">
-                                                    <div className="text-right font-mono">
-                                                        <span className="text-xs text-slate-400 block">Overall Progress</span>
-                                                        <span className="text-emerald-400 font-bold text-base">{summary.overall_progress}%</span>
+                                                    <div className="text-right">
+                                                        <span className="text-[11px] text-slate-500 font-semibold block">Overall Progress</span>
+                                                        <span className="text-blue-600 font-extrabold text-base">{summary.overall_progress}%</span>
                                                     </div>
-                                                    <div className="w-24 bg-slate-900 rounded-full h-2 overflow-hidden border border-slate-800">
+                                                    <div className="w-24 bg-slate-200 rounded-full h-2.5 overflow-hidden">
                                                         <div
-                                                            className="h-full bg-emerald-400 transition-all duration-500"
+                                                            className="h-full bg-blue-600 transition-all duration-500 rounded-full"
                                                             style={{ width: `${summary.overall_progress}%` }}
                                                         />
                                                     </div>
@@ -515,30 +559,30 @@ export default function AdminTaskBuilderPage() {
                                             </div>
 
                                             {/* User Tasks Progress Table */}
-                                            <div className="overflow-x-auto">
-                                                <table className="w-full text-left font-mono text-xs">
+                                            <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+                                                <table className="w-full text-left text-xs text-slate-700">
                                                     <thead>
-                                                        <tr className="bg-slate-900 text-slate-400 text-[10px] uppercase border-b border-slate-800">
-                                                            <th className="p-2">Task</th>
-                                                            <th className="p-2 w-32">Phase</th>
-                                                            <th className="p-2 w-64">Set Progress %</th>
+                                                        <tr className="bg-[#f8fafc] text-slate-500 text-[10px] uppercase font-bold border-b border-slate-200">
+                                                            <th className="p-3">Task</th>
+                                                            <th className="p-3 w-36">Phase</th>
+                                                            <th className="p-3 w-48 text-center">Set Progress %</th>
                                                         </tr>
                                                     </thead>
-                                                    <tbody className="divide-y divide-slate-900">
+                                                    <tbody className="divide-y divide-slate-100">
                                                         {tasks.map((t) => (
-                                                            <tr key={t.id} className="hover:bg-slate-900/50">
-                                                                <td className="p-2 text-slate-200">
-                                                                    <span className="text-emerald-400 font-bold mr-1">{t.prefix}</span> {t.title}
+                                                            <tr key={t.id} className="hover:bg-slate-50">
+                                                                <td className="p-3 font-medium text-[#0f172a]">
+                                                                    <span className="text-blue-600 font-bold mr-1.5">{t.prefix}</span> {t.title}
                                                                 </td>
-                                                                <td className="p-2 text-slate-400 text-[10px]">{t.phase}</td>
-                                                                <td className="p-2">
+                                                                <td className="p-3 text-slate-500 text-[11px]">{t.phase}</td>
+                                                                <td className="p-3 text-center">
                                                                     <input
                                                                         type="number"
                                                                         min="0"
                                                                         max="100"
                                                                         defaultValue="0"
                                                                         onBlur={(e) => handleAdminUpdateUserProgress(summary.user.id, t.id, parseInt(e.target.value) || 0)}
-                                                                        className="w-20 bg-slate-900 border border-slate-800 rounded p-1 text-center text-emerald-400 font-bold outline-none"
+                                                                        className="w-20 bg-white border border-slate-200 rounded-lg p-1.5 text-center text-blue-600 font-bold outline-none shadow-sm focus:border-blue-500"
                                                                     />
                                                                 </td>
                                                             </tr>
@@ -548,6 +592,66 @@ export default function AdminTaskBuilderPage() {
                                             </div>
                                         </div>
                                     ))}
+
+                                    {/* Matrix Pagination Bar */}
+                                    <div className="p-4 border-t border-slate-100 bg-[#f8fafc] rounded-xl flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-600">
+                                        <div className="flex items-center gap-3">
+                                            <span>
+                                                Showing <span className="text-[#0f172a] font-bold">{(matrixPage - 1) * matrixPerPage + 1}</span> to{' '}
+                                                <span className="text-[#0f172a] font-bold">{Math.min(matrixPage * matrixPerPage, filteredUserSummaries.length)}</span> of{' '}
+                                                <span className="text-blue-600 font-bold">{filteredUserSummaries.length}</span> assigned students
+                                            </span>
+                                            <span className="text-slate-300">•</span>
+                                            <div className="flex items-center gap-1.5">
+                                                <span className="text-slate-500">Per page:</span>
+                                                <select
+                                                    value={matrixPerPage}
+                                                    onChange={(e) => {
+                                                        setMatrixPerPage(Number(e.target.value));
+                                                        setMatrixPage(1);
+                                                    }}
+                                                    className="bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs text-slate-700 font-medium focus:outline-none focus:border-blue-500 shadow-xs"
+                                                >
+                                                    <option value={2}>2</option>
+                                                    <option value={4}>4</option>
+                                                    <option value={8}>8</option>
+                                                    <option value={15}>15</option>
+                                                </select>
+                                            </div>
+                                        </div>
+
+                                        <div className="flex items-center gap-2">
+                                            <button
+                                                disabled={matrixPage === 1}
+                                                onClick={() => setMatrixPage((p) => Math.max(1, p - 1))}
+                                                className="px-3 py-1.5 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 disabled:opacity-40 text-xs font-semibold transition shadow-xs"
+                                            >
+                                                Previous
+                                            </button>
+
+                                            {Array.from({ length: totalMatrixPages }, (_, i) => i + 1).map((pg) => (
+                                                <button
+                                                    key={pg}
+                                                    onClick={() => setMatrixPage(pg)}
+                                                    className={`w-7 h-7 rounded-lg text-xs font-bold transition ${
+                                                        matrixPage === pg
+                                                            ? 'bg-[#0f172a] text-white shadow-sm'
+                                                            : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
+                                                    }`}
+                                                >
+                                                    {pg}
+                                                </button>
+                                            ))}
+
+                                            <button
+                                                disabled={matrixPage === totalMatrixPages}
+                                                onClick={() => setMatrixPage((p) => Math.min(totalMatrixPages, p + 1))}
+                                                className="px-3 py-1.5 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 disabled:opacity-40 text-xs font-semibold transition shadow-xs"
+                                            >
+                                                Next
+                                            </button>
+                                        </div>
+                                    </div>
                                 </div>
                             )}
                         </div>
@@ -557,78 +661,78 @@ export default function AdminTaskBuilderPage() {
 
             {/* Modal 1: Create New Plan Modal */}
             {showNewPlanModal && (
-                <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in">
-                    <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-2xl">
-                        <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-                            <h3 className="text-base font-bold text-white flex items-center gap-2">
-                                <Plus className="w-5 h-5 text-emerald-400" /> Create New Project Plan
+                <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in">
+                    <div className="bg-white border border-slate-200 rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-2xl">
+                        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                            <h3 className="text-base font-bold text-[#0f172a] flex items-center gap-2">
+                                <Plus className="w-5 h-5 text-blue-600" /> Create New Project Plan
                             </h3>
-                            <button onClick={() => setShowNewPlanModal(false)} className="text-slate-400 hover:text-white text-sm">✕</button>
+                            <button onClick={() => setShowNewPlanModal(false)} className="text-slate-400 hover:text-slate-600 font-bold">✕</button>
                         </div>
 
-                        <form onSubmit={handleCreatePlan} className="space-y-4 text-xs font-mono">
+                        <form onSubmit={handleCreatePlan} className="space-y-4 text-xs">
                             <div>
-                                <label className="block text-slate-400 mb-1">Project Plan Title</label>
+                                <label className="block text-slate-700 font-semibold mb-1">Project Plan Title</label>
                                 <input
                                     type="text"
                                     required
                                     value={newPlanForm.title}
                                     onChange={(e) => setNewPlanForm({ ...newPlanForm, title: e.target.value })}
-                                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-slate-100 focus:border-emerald-500 outline-none"
+                                    className="w-full bg-white border border-slate-200 rounded-xl p-3 text-slate-800 focus:border-blue-500 outline-none shadow-sm"
                                 />
                             </div>
 
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-slate-400 mb-1">Compliance Standard</label>
+                                    <label className="block text-slate-700 font-semibold mb-1">Compliance Standard</label>
                                     <input
                                         type="text"
                                         value={newPlanForm.standard}
                                         onChange={(e) => setNewPlanForm({ ...newPlanForm, standard: e.target.value })}
                                         placeholder="e.g. ISO 27001, SOC 2"
-                                        className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-slate-100 focus:border-emerald-500 outline-none"
+                                        className="w-full bg-white border border-slate-200 rounded-xl p-3 text-slate-800 focus:border-blue-500 outline-none shadow-sm"
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-slate-400 mb-1">Duration (Weeks)</label>
+                                    <label className="block text-slate-700 font-semibold mb-1">Duration (Weeks)</label>
                                     <input
                                         type="number"
                                         min="1"
                                         value={newPlanForm.weeks_duration}
                                         onChange={(e) => setNewPlanForm({ ...newPlanForm, weeks_duration: parseInt(e.target.value) || 12 })}
-                                        className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-slate-100 focus:border-emerald-500 outline-none"
+                                        className="w-full bg-white border border-slate-200 rounded-xl p-3 text-slate-800 focus:border-blue-500 outline-none shadow-sm"
                                     />
                                 </div>
                             </div>
 
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-slate-400 mb-1">Company / Organization</label>
+                                    <label className="block text-slate-700 font-semibold mb-1">Company / Organization</label>
                                     <input
                                         type="text"
                                         value={newPlanForm.company_name}
                                         onChange={(e) => setNewPlanForm({ ...newPlanForm, company_name: e.target.value })}
-                                        className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-slate-100 focus:border-emerald-500 outline-none"
+                                        className="w-full bg-white border border-slate-200 rounded-xl p-3 text-slate-800 focus:border-blue-500 outline-none shadow-sm"
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-slate-400 mb-1">Project Owner</label>
+                                    <label className="block text-slate-700 font-semibold mb-1">Project Owner</label>
                                     <input
                                         type="text"
                                         value={newPlanForm.project_owner}
                                         onChange={(e) => setNewPlanForm({ ...newPlanForm, project_owner: e.target.value })}
-                                        className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-slate-100 focus:border-emerald-500 outline-none"
+                                        className="w-full bg-white border border-slate-200 rounded-xl p-3 text-slate-800 focus:border-blue-500 outline-none shadow-sm"
                                     />
                                 </div>
                             </div>
 
                             <div>
-                                <label className="block text-slate-400 mb-1">Description / Guidance</label>
+                                <label className="block text-slate-700 font-semibold mb-1">Description / Guidance</label>
                                 <textarea
                                     rows="3"
                                     value={newPlanForm.description}
                                     onChange={(e) => setNewPlanForm({ ...newPlanForm, description: e.target.value })}
-                                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-slate-100 focus:border-emerald-500 outline-none"
+                                    className="w-full bg-white border border-slate-200 rounded-xl p-3 text-slate-800 focus:border-blue-500 outline-none shadow-sm"
                                 />
                             </div>
 
@@ -636,14 +740,14 @@ export default function AdminTaskBuilderPage() {
                                 <button
                                     type="button"
                                     onClick={() => setShowNewPlanModal(false)}
-                                    className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300"
+                                    className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold"
                                 >
                                     Cancel
                                 </button>
                                 <button
                                     type="submit"
                                     disabled={actionLoading}
-                                    className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold flex items-center gap-1.5"
+                                    className="px-4 py-2 rounded-xl bg-[#0f172a] hover:bg-[#1e293b] text-white font-bold flex items-center gap-1.5 shadow-sm"
                                 >
                                     {actionLoading ? 'Creating...' : 'Create Plan'}
                                 </button>
@@ -655,24 +759,24 @@ export default function AdminTaskBuilderPage() {
 
             {/* Modal 2: Add / Edit Task Modal */}
             {showNewTaskModal && (
-                <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in">
-                    <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-2xl">
-                        <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-                            <h3 className="text-base font-bold text-white flex items-center gap-2">
-                                <Edit2 className="w-5 h-5 text-emerald-400" />
+                <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in">
+                    <div className="bg-white border border-slate-200 rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-2xl">
+                        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                            <h3 className="text-base font-bold text-[#0f172a] flex items-center gap-2">
+                                <Edit2 className="w-5 h-5 text-blue-600" />
                                 {editingTask ? 'Edit Task Row' : 'Insert Task Row'}
                             </h3>
-                            <button onClick={() => setShowNewTaskModal(false)} className="text-slate-400 hover:text-white text-sm">✕</button>
+                            <button onClick={() => setShowNewTaskModal(false)} className="text-slate-400 hover:text-slate-600 font-bold">✕</button>
                         </div>
 
-                        <form onSubmit={handleSaveTask} className="space-y-4 text-xs font-mono">
+                        <form onSubmit={handleSaveTask} className="space-y-4 text-xs">
                             <div className="grid grid-cols-3 gap-4">
                                 <div className="col-span-2">
-                                    <label className="block text-slate-400 mb-1">Phase</label>
+                                    <label className="block text-slate-700 font-semibold mb-1">Phase</label>
                                     <select
                                         value={taskForm.phase}
                                         onChange={(e) => setTaskForm({ ...taskForm, phase: e.target.value })}
-                                        className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-slate-100 focus:border-emerald-500 outline-none"
+                                        className="w-full bg-white border border-slate-200 rounded-xl p-3 text-slate-800 focus:border-blue-500 outline-none shadow-sm"
                                     >
                                         <option value="Project setup kick-off">Project setup kick-off</option>
                                         <option value="Implementation phase">Implementation phase</option>
@@ -682,48 +786,48 @@ export default function AdminTaskBuilderPage() {
                                     </select>
                                 </div>
                                 <div>
-                                    <label className="block text-slate-400 mb-1">Prefix (e.g. 1.1)</label>
+                                    <label className="block text-slate-700 font-semibold mb-1">Prefix (e.g. 1.1)</label>
                                     <input
                                         type="text"
                                         value={taskForm.prefix}
                                         onChange={(e) => setTaskForm({ ...taskForm, prefix: e.target.value })}
                                         placeholder="1.1"
-                                        className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-slate-100 focus:border-emerald-500 outline-none"
+                                        className="w-full bg-white border border-slate-200 rounded-xl p-3 text-slate-800 focus:border-blue-500 outline-none shadow-sm"
                                     />
                                 </div>
                             </div>
 
                             <div>
-                                <label className="block text-slate-400 mb-1">Task Title</label>
+                                <label className="block text-slate-700 font-semibold mb-1">Task Title</label>
                                 <input
                                     type="text"
                                     required
                                     value={taskForm.title}
                                     onChange={(e) => setTaskForm({ ...taskForm, title: e.target.value })}
                                     placeholder="e.g. Complete Risk Assessment"
-                                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-slate-100 focus:border-emerald-500 outline-none"
+                                    className="w-full bg-white border border-slate-200 rounded-xl p-3 text-slate-800 focus:border-blue-500 outline-none shadow-sm"
                                 />
                             </div>
 
                             <div>
-                                <label className="block text-slate-400 mb-1">Details & Guidance</label>
+                                <label className="block text-slate-700 font-semibold mb-1">Details & Guidance</label>
                                 <textarea
                                     rows="3"
                                     value={taskForm.details}
                                     onChange={(e) => setTaskForm({ ...taskForm, details: e.target.value })}
                                     placeholder="Explanation of how to work on this task..."
-                                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-slate-100 focus:border-emerald-500 outline-none"
+                                    className="w-full bg-white border border-slate-200 rounded-xl p-3 text-slate-800 focus:border-blue-500 outline-none shadow-sm"
                                 />
                             </div>
 
                             <div>
-                                <label className="block text-slate-400 mb-1">Comments / Notes</label>
+                                <label className="block text-slate-700 font-semibold mb-1">Comments / Notes</label>
                                 <input
                                     type="text"
                                     value={taskForm.comments}
                                     onChange={(e) => setTaskForm({ ...taskForm, comments: e.target.value })}
                                     placeholder="e.g. Clause 6.1.2 compliance"
-                                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-slate-100 focus:border-emerald-500 outline-none"
+                                    className="w-full bg-white border border-slate-200 rounded-xl p-3 text-slate-800 focus:border-blue-500 outline-none shadow-sm"
                                 />
                             </div>
 
@@ -731,14 +835,14 @@ export default function AdminTaskBuilderPage() {
                                 <button
                                     type="button"
                                     onClick={() => setShowNewTaskModal(false)}
-                                    className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300"
+                                    className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold"
                                 >
                                     Cancel
                                 </button>
                                 <button
                                     type="submit"
                                     disabled={actionLoading}
-                                    className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold flex items-center gap-1.5"
+                                    className="px-4 py-2 rounded-xl bg-[#0f172a] hover:bg-[#1e293b] text-white font-bold flex items-center gap-1.5 shadow-sm"
                                 >
                                     {actionLoading ? 'Saving...' : 'Save Row'}
                                 </button>
@@ -750,35 +854,35 @@ export default function AdminTaskBuilderPage() {
 
             {/* Modal 3: Assign Students / Users Modal */}
             {showAssignModal && (
-                <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in">
-                    <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-2xl">
-                        <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in">
+                    <div className="bg-white border border-slate-200 rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-2xl">
+                        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                             <div className="flex items-center gap-2">
-                                <Users className="w-5 h-5 text-emerald-400" />
-                                <h3 className="text-base font-bold text-white">Assign Users to Project Plan</h3>
+                                <Users className="w-5 h-5 text-blue-600" />
+                                <h3 className="text-base font-bold text-[#0f172a]">Assign Users to Project Plan</h3>
                             </div>
-                            <button onClick={() => setShowAssignModal(false)} className="text-slate-400 hover:text-white text-sm">✕</button>
+                            <button onClick={() => setShowAssignModal(false)} className="text-slate-400 hover:text-slate-600 font-bold">✕</button>
                         </div>
 
-                        <p className="text-xs text-slate-400 font-mono">
-                            Select users from the list or dropdown to assign them to this project plan:
+                        <p className="text-xs text-slate-500">
+                            Select users to assign them to this project plan:
                         </p>
 
                         {/* Search Bar Input */}
-                        <div className="relative font-mono">
-                            <Search className="w-4 h-4 text-slate-500 absolute left-3 top-3" />
+                        <div className="relative">
+                            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
                             <input
                                 type="text"
                                 value={userSearchTerm}
                                 onChange={(e) => setUserSearchTerm(e.target.value)}
                                 placeholder="Search user by name or email..."
-                                className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-3 py-2 text-xs text-slate-200 outline-none focus:border-emerald-500"
+                                className="w-full bg-white border border-slate-200 rounded-xl pl-9 pr-3 py-2 text-xs text-slate-800 outline-none focus:border-blue-500 shadow-sm"
                             />
                         </div>
 
                         {/* Dropdown Select Menu */}
-                        <div className="font-mono text-xs">
-                            <label className="block text-[10px] text-slate-400 uppercase font-bold mb-1">Select User from Dropdown</label>
+                        <div className="text-xs">
+                            <label className="block text-[10px] text-slate-500 uppercase font-bold mb-1">Select User from Dropdown</label>
                             <select
                                 onChange={(e) => {
                                     const val = parseInt(e.target.value);
@@ -786,7 +890,7 @@ export default function AdminTaskBuilderPage() {
                                         setSelectedUserIds([...selectedUserIds, val]);
                                     }
                                 }}
-                                className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-xs text-slate-200 outline-none focus:border-emerald-500"
+                                className="w-full bg-white border border-slate-200 rounded-xl p-2.5 text-xs text-slate-800 outline-none focus:border-blue-500 shadow-sm"
                             >
                                 <option value="">-- Choose user to add to assignment --</option>
                                 {allUsers.map((u) => (
@@ -798,12 +902,12 @@ export default function AdminTaskBuilderPage() {
                         </div>
 
                         {/* Filtered User Checkbox List */}
-                        <div className="max-h-56 overflow-y-auto space-y-2 font-mono text-xs pr-1 divide-y divide-slate-800/40">
+                        <div className="max-h-56 overflow-y-auto space-y-2 text-xs pr-1 divide-y divide-slate-100">
                             {allUsers.filter(u =>
                                 u.name?.toLowerCase().includes(userSearchTerm.toLowerCase()) ||
                                 u.email?.toLowerCase().includes(userSearchTerm.toLowerCase())
                             ).length === 0 ? (
-                                <div className="p-4 text-center text-slate-500 text-xs font-mono">
+                                <div className="p-4 text-center text-slate-400 text-xs">
                                     No users found matching "{userSearchTerm}".
                                 </div>
                             ) : (
@@ -817,18 +921,18 @@ export default function AdminTaskBuilderPage() {
                                             key={u.id}
                                             className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer transition ${
                                                 isSelected
-                                                    ? 'bg-emerald-950/40 border-emerald-800 text-white'
-                                                    : 'bg-slate-950 border-slate-800 text-slate-400 hover:bg-slate-800/40'
+                                                    ? 'bg-blue-50/70 border-blue-200 text-blue-900'
+                                                    : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
                                             }`}
                                         >
                                             <div>
                                                 <div className="flex items-center gap-2">
-                                                    <span className="font-bold text-slate-100 block">{u.name}</span>
-                                                    <span className="text-[10px] bg-slate-900 border border-slate-800 text-cyan-400 px-1.5 py-0.5 rounded capitalize">
+                                                    <span className="font-bold text-[#0f172a] block">{u.name}</span>
+                                                    <span className="text-[10px] bg-slate-100 border border-slate-200 text-slate-600 px-1.5 py-0.5 rounded capitalize">
                                                         {u.role}
                                                     </span>
                                                 </div>
-                                                <span className="text-[10px] text-slate-500 block">{u.email}</span>
+                                                <span className="text-[10px] text-slate-400 block">{u.email}</span>
                                             </div>
                                             <input
                                                 type="checkbox"
@@ -840,7 +944,7 @@ export default function AdminTaskBuilderPage() {
                                                         setSelectedUserIds(selectedUserIds.filter((id) => id !== u.id));
                                                     }
                                                 }}
-                                                className="w-4 h-4 accent-emerald-500 rounded"
+                                                className="w-4 h-4 accent-blue-600 rounded"
                                             />
                                         </label>
                                     );
@@ -848,15 +952,15 @@ export default function AdminTaskBuilderPage() {
                             )}
                         </div>
 
-                        <div className="flex items-center justify-between pt-2 border-t border-slate-800">
-                            <span className="text-xs font-mono text-emerald-400 font-bold">
+                        <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+                            <span className="text-xs text-blue-700 font-bold">
                                 {selectedUserIds.length} Users Selected
                             </span>
                             <div className="flex gap-2">
                                 <button
                                     type="button"
                                     onClick={() => setShowAssignModal(false)}
-                                    className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-mono"
+                                    className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold"
                                 >
                                     Cancel
                                 </button>
@@ -864,7 +968,7 @@ export default function AdminTaskBuilderPage() {
                                     type="button"
                                     onClick={handleAssignUsers}
                                     disabled={actionLoading}
-                                    className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs font-mono flex items-center gap-1.5"
+                                    className="px-4 py-2 rounded-xl bg-[#0f172a] hover:bg-[#1e293b] text-white font-bold text-xs flex items-center gap-1.5 shadow-sm"
                                 >
                                     {actionLoading ? 'Saving...' : 'Save Assignments'}
                                 </button>
@@ -876,4 +980,3 @@ export default function AdminTaskBuilderPage() {
         </div>
     );
 }
-

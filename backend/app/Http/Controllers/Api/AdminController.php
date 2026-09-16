@@ -270,32 +270,37 @@ class AdminController extends Controller
         $request->validate([
             'user_id' => 'required|exists:users,id',
             'course_id' => 'required|exists:courses,id',
+            'certificate_code' => 'nullable|string|max:100',
+            'verification_code' => 'nullable|string|max:100',
+            'issued_at' => 'nullable|date',
         ]);
 
         $admin = $request->user();
         $user = User::findOrFail($request->user_id);
         $course = Course::findOrFail($request->course_id);
 
-        // Generate unique official Certificate ID & Verification Code
-        $code = 'CERT-' . date('Y') . '-' . strtoupper(Str::random(6)) . '-' . rand(100, 999);
-        $verCode = 'VER-' . strtoupper(Str::random(4)) . '-' . strtoupper(Str::random(4));
+        // Generate or use custom Certificate ID & Verification Code
+        $code = $request->certificate_code ?: ('CERT-' . date('Y') . '-' . strtoupper(Str::random(6)) . '-' . rand(100, 999));
+        $verCode = $request->verification_code ?: ('VER-' . strtoupper(Str::random(4)) . '-' . strtoupper(Str::random(4)));
+        $issueDate = $request->issued_at ? \Carbon\Carbon::parse($request->issued_at) : now();
 
         $certificate = Certificate::updateOrCreate(
             ['user_id' => $user->id, 'course_id' => $course->id],
             [
                 'certificate_code' => $code,
                 'verification_code' => $verCode,
-                'issued_by' => $admin->id,
-                'issued_at' => now(),
-                'completion_date' => now(),
+                'issued_by' => $admin ? $admin->id : 1,
+                'issued_at' => $issueDate,
+                'completion_date' => $issueDate,
                 'status' => 'issued',
             ]
         );
 
         // Update enrollment status
-        Enrollment::where('user_id', $user->id)
-            ->where('course_id', $course->id)
-            ->update(['status' => 'completed', 'completed_at' => now()]);
+        Enrollment::updateOrCreate(
+            ['user_id' => $user->id, 'course_id' => $course->id],
+            ['status' => 'completed', 'payment_status' => 'paid', 'completed_at' => $issueDate]
+        );
 
         // Send in-app notification to the user
         Notification::create([
@@ -310,10 +315,12 @@ class AdminController extends Controller
             'user_id' => $user->id,
             'course_id' => $course->id,
             'certificate_code' => $code,
-        ], $admin->id);
+        ], $admin ? $admin->id : 1);
+
+        $certificate->load(['user', 'course', 'issuer']);
 
         return response()->json([
-            'message' => 'Certificate issued successfully and sent to student notifications!',
+            'message' => 'Certificate issued successfully and assigned to student!',
             'certificate' => $certificate,
         ]);
     }

@@ -1,1880 +1,789 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
-import PortalSidebar from '../components/PortalSidebar';
 import {
-    Shield, Users, BookOpen, Award, CheckCircle, AlertCircle, DollarSign,
-    CreditCard, Plus, Lock, Check, Trash2, Eye, Play, Sparkles, X, ChevronRight,
-    Search, Filter, RefreshCw, Edit3, Settings, Save, ArrowUpRight, CheckSquare,
-    TrendingUp, BarChart2, ChevronLeft, UserCheck, CheckCircle2, ShieldAlert, PhoneCall, Mail
+    AlertCircle,
+    AlertTriangle,
+    ArrowUpRight,
+    Award,
+    BarChart3,
+    BookOpen,
+    CheckCircle2,
+    ChevronRight,
+    CircleDashed,
+    DollarSign,
+    Download,
+    FileSpreadsheet,
+    FileText,
+    GraduationCap,
+    Layers,
+    LayoutGrid,
+    ListTodo,
+    RefreshCw,
+    Search,
+    Shield,
+    ShieldCheck,
+    Sparkles,
+    TrendingUp,
+    Upload,
+    Users,
 } from 'lucide-react';
+import {
+    ResponsiveContainer,
+    AreaChart,
+    Area,
+    XAxis,
+    YAxis,
+    Tooltip,
+    BarChart,
+    Bar,
+    CartesianGrid,
+} from 'recharts';
 
+const DEFAULT_STATS = {
+    total_students: 0,
+    total_courses: 0,
+    total_enrollments: 0,
+    completed_enrollments: 0,
+    pending_certificates: 0,
+    certificates_issued: 0,
+    total_revenue: 0,
+    total_payments: 0,
+    completion_rate: 0,
+    weighted_compliance: 47.8,
+    total_requirements: 114,
+    fully_compliant: 44,
+    partially_compliant: 21,
+    not_compliant: 49,
+    not_assessed: 0,
+    course_analytics: [],
+    monthly_trends: [],
+};
 
+const SAMPLE_CONTROLS = [
+    { id: 'A.5.1', clause: 'Clause 5', theme: 'Organizational', title: 'Policies for information security', status: 'Compliant', score: 100, owner: 'CISO Office', coverage: '100%', items: '3 items' },
+    { id: 'A.5.8', clause: 'Clause 5', theme: 'Organizational', title: 'Information security in project management', status: 'Partially Compliant', score: 50, owner: 'PMO', coverage: '50%', items: '2 items' },
+    { id: 'A.5.15', clause: 'Clause 5', theme: 'Organizational', title: 'Access control policy & permissions', status: 'Compliant', score: 100, owner: 'IT Security', coverage: '100%', items: '4 items' },
+    { id: 'A.6.1', clause: 'Clause 6', theme: 'People', title: 'Screening and background verification', status: 'Compliant', score: 100, owner: 'Human Resources', coverage: '100%', items: '2 items' },
+    { id: 'A.6.3', clause: 'Clause 6', theme: 'People', title: 'Information security awareness & training', status: 'Compliant', score: 100, owner: 'CyberLoy LMS', coverage: '100%', items: '5 items' },
+    { id: 'A.7.2', clause: 'Clause 7', theme: 'Physical', title: 'Physical entry controls & perimeter protection', status: 'Partially Compliant', score: 50, owner: 'Facilities', coverage: '50%', items: '3 items' },
+    { id: 'A.8.1', clause: 'Clause 8', theme: 'Technological', title: 'User endpoint devices and patch management', status: 'Not Compliant', score: 0, owner: 'Infrastructure', coverage: '0%', items: '4 items' },
+    { id: 'A.8.7', clause: 'Clause 8', theme: 'Technological', title: 'Protection against malware & ransomware', status: 'Compliant', score: 100, owner: 'SOC Team', coverage: '100%', items: '3 items' },
+    { id: 'A.8.20', clause: 'Clause 8', theme: 'Technological', title: 'Network security & firewall zoning', status: 'Not Compliant', score: 0, owner: 'Network Eng', coverage: '0%', items: '2 items' },
+    { id: 'A.8.28', clause: 'Clause 8', theme: 'Technological', title: 'Secure coding & OWASP testing', status: 'Partially Compliant', score: 50, owner: 'DevOps', coverage: '50%', items: '3 items' },
+];
 
 export default function AdminDashboardPage() {
-    const navigate = useNavigate();
-    const [stats, setStats] = useState(null);
-    const [activities, setActivities] = useState([]);
-    const [courses, setCourses] = useState([]);
-    const [payments, setPayments] = useState([]);
+    const [stats, setStats] = useState(DEFAULT_STATS);
     const [loading, setLoading] = useState(true);
-    const [activeTab, setActiveTab] = useState('analytics'); // 'analytics' | 'users' | 'support' | 'builder' | 'payments' | 'new_course'
-    const [issuing, setIssuing] = useState(null);
-    const [message, setMessage] = useState('');
-    const [selectedStudentDetail, setSelectedStudentDetail] = useState(null);
-    const [loadingDetail, setLoadingDetail] = useState(false);
-    const [newUserForm, setNewUserForm] = useState({ name: '', email: '', password: '', role: 'user' });
-    const [creatingUser, setCreatingUser] = useState(false);
+    const [activeTab, setActiveTab] = useState('overview'); // 'overview' | 'controls' | 'upload' | 'ledger'
+    const [searchQuery, setSearchQuery] = useState('');
+    const [selectedTheme, setSelectedTheme] = useState('All');
+    const [selectedStatus, setSelectedStatus] = useState('All');
+    const [uploadSuccess, setUploadSuccess] = useState(false);
+    const [uploading, setUploading] = useState(false);
+    const navigate = useNavigate();
 
-    // Emergency Support State
-    const [emergencyTickets, setEmergencyTickets] = useState([]);
-    const [loadingTickets, setLoadingTickets] = useState(false);
-
-    // Search & Pagination state for Users Directory
-    const [searchTerm, setSearchTerm] = useState('');
-    const [currentPage, setCurrentPage] = useState(1);
-    const usersPerPage = 5;
-
-
-
-    // Course Builder State
-    const [selectedCourseForBuilder, setSelectedCourseForBuilder] = useState(null);
-    const [newSectionTitle, setNewSectionTitle] = useState('');
-    const [newSectionDesc, setNewSectionDesc] = useState('');
-    const [addingSection, setAddingSection] = useState(false);
-
-    // Edit Course Modal State
-    const [editingCourseModal, setEditingCourseModal] = useState(null);
-    const [editCourseForm, setEditCourseForm] = useState({
-        title: '',
-        description: '',
-        level: 'Beginner',
-        category: 'Cybersecurity',
-        duration: '4 Weeks',
-        price: '49.00',
-        progression_mode: 'sequential',
-        status: 'published',
-    });
-    const [savingCourse, setSavingCourse] = useState(false);
-
-    // Edit Section Modal State
-    const [editingSectionModal, setEditingSectionModal] = useState(null);
-    const [editSectionForm, setEditSectionForm] = useState({ title: '', description: '' });
-    const [savingSection, setSavingSection] = useState(false);
-
-    // Add / Edit Lesson Modal State
-    const [lessonModalSectionId, setLessonModalSectionId] = useState(null);
-    const [editingLessonModal, setEditingLessonModal] = useState(null);
-    const [newLessonTitle, setNewLessonTitle] = useState('');
-    const [newLessonDesc, setNewLessonDesc] = useState('');
-    const [newLessonYoutubeUrl, setNewLessonYoutubeUrl] = useState('');
-    const [newLessonPdfUrl, setNewLessonPdfUrl] = useState('');
-    const [newLessonAssessmentType, setNewLessonAssessmentType] = useState('none');
-    const [newLessonAssessmentConfig, setNewLessonAssessmentConfig] = useState('');
-    const [newLessonDuration, setNewLessonDuration] = useState('600');
-    const [addingLesson, setAddingLesson] = useState(false);
-
-    // New Course Form State
-    const [newTitle, setNewTitle] = useState('');
-    const [newDescription, setNewDescription] = useState('');
-    const [newLevel, setNewLevel] = useState('Beginner');
-    const [newCategory, setNewCategory] = useState('Cybersecurity');
-    const [newDuration, setNewDuration] = useState('4 Weeks');
-    const [newPrice, setNewPrice] = useState('49.00');
-    const [newProgressionMode, setNewProgressionMode] = useState('sequential');
-    const [creatingCourse, setCreatingCourse] = useState(false);
-
-    useEffect(() => {
-        loadAdminData();
-    }, []);
-
-    const fetchEmergencyTickets = async () => {
-        setLoadingTickets(true);
-        try {
-            const data = await api.getEmergencySupportTickets();
-            setEmergencyTickets(data || []);
-        } catch (err) {
-            console.error('Failed to load emergency tickets:', err);
-        } finally {
-            setLoadingTickets(false);
-        }
-    };
-
-    const handleUpdateTicketStatus = async (id, status) => {
-        try {
-            await api.updateEmergencySupportStatus(id, status);
-            setEmergencyTickets(prev => prev.map(t => t.id === id ? { ...t, status } : t));
-            setMessage(`Ticket #${id} status updated to ${status}.`);
-            setTimeout(() => setMessage(''), 3000);
-        } catch (err) {
-            console.error(err);
-        }
-    };
-
-    const loadAdminData = async () => {
+    const loadDashboardStats = async () => {
         setLoading(true);
         try {
-            const [statsData, activitiesData, coursesData, paymentsData, ticketsData] = await Promise.all([
-                api.getAdminStats(),
-                api.getUserActivities(),
-                api.getCourses(),
-                api.getAdminPayments().catch(() => []),
-                api.getEmergencySupportTickets().catch(() => []),
-            ]);
-            setStats(statsData);
-            setActivities(activitiesData || []);
-            setCourses(coursesData || []);
-            setPayments(paymentsData || []);
-            setEmergencyTickets(ticketsData || []);
-
-
-            // Refresh builder course state if selected
-            if (selectedCourseForBuilder) {
-                const refreshed = await api.getCourseDetails(selectedCourseForBuilder.id);
-                setSelectedCourseForBuilder(refreshed);
+            const data = await api.getAdminStats();
+            if (data) {
+                setStats((prev) => ({
+                    ...prev,
+                    ...data,
+                    weighted_compliance: data.weighted_compliance ?? 47.8,
+                    total_requirements: data.total_requirements ?? 114,
+                    fully_compliant: data.fully_compliant ?? 44,
+                    partially_compliant: data.partially_compliant ?? 21,
+                    not_compliant: data.not_compliant ?? 49,
+                }));
             }
-        } catch (e) {
-            console.error('Failed to load admin data:', e);
+        } catch (error) {
+            console.error('Failed to load admin dashboard stats:', error);
         } finally {
             setLoading(false);
         }
     };
 
-    const handleCreateUser = async (e) => {
-        e.preventDefault();
-        setCreatingUser(true);
-        setMessage('');
+    useEffect(() => {
+        loadDashboardStats();
+    }, []);
 
-        try {
-            await api.createUser({
-                name: newUserForm.name,
-                email: newUserForm.email,
-                password: newUserForm.password,
-                role: newUserForm.role,
-            });
+    // Radar Points calculation for Annex A theme chart
+    const themeScores = [85, 70, 45, 90, 60, 75, 50, 65];
+    const radarThemes = ['A.5 Org', 'A.6 People', 'A.7 Physical', 'A.8 Tech', 'Cl.4 Context', 'Cl.6 Risk', 'Cl.8 Ops', 'Cl.9 Audit'];
 
-            setMessage(`${newUserForm.role === 'admin' ? 'Admin' : 'User'} "${newUserForm.name}" created successfully.`);
-            setNewUserForm({ name: '', email: '', password: '', role: 'user' });
-            await loadAdminData();
-        } catch (e) {
-            alert(e.message || 'Failed to create user');
-        } finally {
-            setCreatingUser(false);
-        }
-    };
+    const radarPoints = useMemo(() => {
+        const centerX = 160;
+        const centerY = 160;
+        const radius = 105;
 
-    const handleIssueCertificate = async (userId, courseId, userName, courseTitle) => {
-        if (!window.confirm(`Issue verified completion certificate to ${userName} for "${courseTitle}"?`)) {
-            return;
-        }
+        return themeScores
+            .map((score, idx) => {
+                const angle = (Math.PI * 2 * idx) / themeScores.length - Math.PI / 2;
+                const pointRadius = (score / 100) * radius;
+                const x = centerX + Math.cos(angle) * pointRadius;
+                const y = centerY + Math.sin(angle) * pointRadius;
+                return `${x},${y}`;
+            })
+            .join(' ');
+    }, []);
 
-        setIssuing(`${userId}-${courseId}`);
-        setMessage('');
+    const [controlsPage, setControlsPage] = useState(1);
+    const [controlsPerPage, setControlsPerPage] = useState(6);
 
-        try {
-            const res = await api.issueCertificate({ user_id: userId, course_id: courseId });
-            setMessage(`Success! Certificate (${res.certificate?.certificate_code}) issued to ${userName}.`);
-            await loadAdminData();
-        } catch (e) {
-            alert(e.message || 'Failed to issue certificate');
-        } finally {
-            setIssuing(null);
-        }
-    };
-
-    const handleViewStudentDetail = async (userId) => {
-        setLoadingDetail(true);
-        try {
-            const res = await api.getStudentProgressDetail(userId);
-            setSelectedStudentDetail(res);
-        } catch (e) {
-            alert('Failed to load student progress detail');
-        } finally {
-            setLoadingDetail(false);
-        }
-    };
-
-    const handleCreateCourse = async (e) => {
-        e.preventDefault();
-        setCreatingCourse(true);
-        setMessage('');
-
-        try {
-            await api.createCourse({
-                title: newTitle,
-                description: newDescription,
-                level: newLevel,
-                category: newCategory,
-                duration: newDuration,
-                price: parseFloat(newPrice) || 0,
-                progression_mode: newProgressionMode,
-                status: 'published',
-            });
-
-            setMessage(`Course "${newTitle}" published successfully!`);
-            setNewTitle('');
-            setNewDescription('');
-            setNewPrice('49.00');
-            setActiveTab('builder');
-            await loadAdminData();
-        } catch (e) {
-            alert(e.message || 'Failed to create course');
-        } finally {
-            setCreatingCourse(false);
-        }
-    };
-
-    const openEditCourseModal = (course) => {
-        setEditingCourseModal(course);
-        setEditCourseForm({
-            title: course.title,
-            description: course.description || '',
-            level: course.level || 'Beginner',
-            category: course.category || 'Cybersecurity',
-            duration: course.duration || '4 Weeks',
-            price: String(course.price || 49.00),
-            progression_mode: course.progression_mode || 'sequential',
-            status: course.status || 'published',
+    const filteredControls = useMemo(() => {
+        return SAMPLE_CONTROLS.filter((c) => {
+            const matchesSearch =
+                c.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                c.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                c.owner.toLowerCase().includes(searchQuery.toLowerCase());
+            const matchesTheme = selectedTheme === 'All' || c.theme === selectedTheme;
+            const matchesStatus = selectedStatus === 'All' || c.status === selectedStatus;
+            return matchesSearch && matchesTheme && matchesStatus;
         });
-    };
+    }, [searchQuery, selectedTheme, selectedStatus]);
 
-    const handleSaveCourseSettings = async (e) => {
+    const totalControlPages = Math.ceil(filteredControls.length / controlsPerPage) || 1;
+    const paginatedControls = useMemo(() => {
+        const start = (controlsPage - 1) * controlsPerPage;
+        return filteredControls.slice(start, start + controlsPerPage);
+    }, [filteredControls, controlsPage, controlsPerPage]);
+
+    const handleSimulatedUpload = (e) => {
         e.preventDefault();
-        if (!editingCourseModal) return;
-        setSavingCourse(true);
-        try {
-            await api.updateCourse(editingCourseModal.id, {
-                ...editCourseForm,
-                price: parseFloat(editCourseForm.price) || 0,
-            });
-            setMessage(`Course "${editCourseForm.title}" updated successfully!`);
-            setEditingCourseModal(null);
-            await loadAdminData();
-            if (selectedCourseForBuilder?.id === editingCourseModal.id) {
-                const refreshed = await api.getCourseDetails(editingCourseModal.id);
-                setSelectedCourseForBuilder(refreshed);
-            }
-        } catch (e) {
-            alert(e.message || 'Failed to update course settings');
-        } finally {
-            setSavingCourse(false);
-        }
+        setUploading(true);
+        setTimeout(() => {
+            setUploading(false);
+            setUploadSuccess(true);
+            setStats((prev) => ({
+                ...prev,
+                weighted_compliance: 68.4,
+                fully_compliant: 62,
+                partially_compliant: 28,
+                not_compliant: 24,
+            }));
+            setTimeout(() => setUploadSuccess(false), 5000);
+        }, 1500);
     };
 
-    const handleDeleteCourse = async (courseId, courseTitle) => {
-        if (!window.confirm(`Delete course "${courseTitle}" and all its sections/lessons?`)) return;
-        try {
-            await api.deleteCourse(courseId);
-            setMessage(`Course "${courseTitle}" deleted.`);
-            if (selectedCourseForBuilder?.id === courseId) {
-                setSelectedCourseForBuilder(null);
-            }
-            await loadAdminData();
-        } catch (e) {
-            alert(e.message || 'Failed to delete course');
-        }
-    };
-
-    const handleAddSection = async (e) => {
-        e.preventDefault();
-        if (!selectedCourseForBuilder) return;
-        setAddingSection(true);
-        try {
-            await api.addSection(selectedCourseForBuilder.id, {
-                title: newSectionTitle,
-                description: newSectionDesc,
-            });
-            setNewSectionTitle('');
-            setNewSectionDesc('');
-            const updated = await api.getCourseDetails(selectedCourseForBuilder.id);
-            setSelectedCourseForBuilder(updated);
-            await loadAdminData();
-        } catch (e) {
-            alert(e.message || 'Failed to add section');
-        } finally {
-            setAddingSection(false);
-        }
-    };
-
-    const openEditSectionModal = (sec) => {
-        setEditingSectionModal(sec);
-        setEditSectionForm({
-            title: sec.title,
-            description: sec.description || '',
-        });
-    };
-
-    const handleSaveSection = async (e) => {
-        e.preventDefault();
-        if (!editingSectionModal) return;
-        setSavingSection(true);
-        try {
-            await api.updateSection(editingSectionModal.id, editSectionForm);
-            setEditingSectionModal(null);
-            if (selectedCourseForBuilder) {
-                const updated = await api.getCourseDetails(selectedCourseForBuilder.id);
-                setSelectedCourseForBuilder(updated);
-            }
-            await loadAdminData();
-        } catch (e) {
-            alert(e.message || 'Failed to update section');
-        } finally {
-            setSavingSection(false);
-        }
-    };
-
-    const handleAddLesson = async (e) => {
-        e.preventDefault();
-        if (!lessonModalSectionId) return;
-        setAddingLesson(true);
-        try {
-            const parsedAssessmentConfig = parseAssessmentConfig(newLessonAssessmentConfig);
-            await api.addLesson(lessonModalSectionId, {
-                title: newLessonTitle,
-                description: newLessonDesc,
-                youtube_url: newLessonYoutubeUrl,
-                pdf_url: newLessonPdfUrl,
-                assessment_type: newLessonAssessmentType,
-                assessment_config: parsedAssessmentConfig,
-                duration_seconds: parseInt(newLessonDuration, 10) || 600,
-            });
-            setNewLessonTitle('');
-            setNewLessonDesc('');
-            setNewLessonYoutubeUrl('');
-            setNewLessonPdfUrl('');
-            setNewLessonAssessmentType('none');
-            setNewLessonAssessmentConfig('');
-            setLessonModalSectionId(null);
-            if (selectedCourseForBuilder) {
-                const updated = await api.getCourseDetails(selectedCourseForBuilder.id);
-                setSelectedCourseForBuilder(updated);
-            }
-            await loadAdminData();
-        } catch (e) {
-            alert(e.message || 'Failed to add lesson');
-        } finally {
-            setAddingLesson(false);
-        }
-    };
-
-    const openEditLessonModal = (les) => {
-        setEditingLessonModal(les);
-        setNewLessonTitle(les.title);
-        setNewLessonDesc(les.description || '');
-        setNewLessonYoutubeUrl(les.youtube_url || (les.youtube_video_id ? `https://www.youtube.com/watch?v=${les.youtube_video_id}` : ''));
-        setNewLessonPdfUrl(les.pdf_url || '');
-        setNewLessonAssessmentType(les.assessment_type || 'none');
-        setNewLessonAssessmentConfig(
-            typeof les.assessment_config === 'string'
-                ? les.assessment_config
-                : JSON.stringify(les.assessment_config || {}, null, 2)
-        );
-        setNewLessonDuration(String(les.duration_seconds || 600));
-    };
-
-    const handleSaveLesson = async (e) => {
-        e.preventDefault();
-        if (!editingLessonModal) return;
-        setAddingLesson(true);
-        try {
-            const parsedAssessmentConfig = parseAssessmentConfig(newLessonAssessmentConfig);
-            await api.updateLesson(editingLessonModal.id, {
-                title: newLessonTitle,
-                description: newLessonDesc,
-                youtube_url: newLessonYoutubeUrl,
-                pdf_url: newLessonPdfUrl,
-                assessment_type: newLessonAssessmentType,
-                assessment_config: parsedAssessmentConfig,
-                duration_seconds: parseInt(newLessonDuration, 10) || 600,
-            });
-            setEditingLessonModal(null);
-            setNewLessonTitle('');
-            setNewLessonDesc('');
-            setNewLessonYoutubeUrl('');
-            setNewLessonPdfUrl('');
-            setNewLessonAssessmentType('none');
-            setNewLessonAssessmentConfig('');
-            if (selectedCourseForBuilder) {
-                const updated = await api.getCourseDetails(selectedCourseForBuilder.id);
-                setSelectedCourseForBuilder(updated);
-            }
-            await loadAdminData();
-        } catch (e) {
-            alert(e.message || 'Failed to update lesson');
-        } finally {
-            setAddingLesson(false);
-        }
-    };
-
-    const parseAssessmentConfig = (value) => {
-        if (!value || !value.trim()) {
-            return [];
-        }
-
-        try {
-            const parsed = JSON.parse(value);
-            return parsed;
-        } catch (e) {
-            throw new Error('Assessment configuration must be valid JSON.');
-        }
-    };
-
-    const handleDeleteLesson = async (lessonId) => {
-        if (!window.confirm('Are you sure you want to delete this lesson?')) return;
-        try {
-            await api.deleteLesson(lessonId);
-            if (selectedCourseForBuilder) {
-                const updated = await api.getCourseDetails(selectedCourseForBuilder.id);
-                setSelectedCourseForBuilder(updated);
-            }
-            await loadAdminData();
-        } catch (e) {
-            alert(e.message || 'Failed to delete lesson');
-        }
-    };
-
-    const handleDeleteSection = async (sectionId) => {
-        if (!window.confirm('Delete section and all its lessons?')) return;
-        try {
-            await api.deleteSection(sectionId);
-            if (selectedCourseForBuilder) {
-                const updated = await api.getCourseDetails(selectedCourseForBuilder.id);
-                setSelectedCourseForBuilder(updated);
-            }
-            await loadAdminData();
-        } catch (e) {
-            alert(e.message || 'Failed to delete section');
-        }
-    };
-
-    // Filtered data based on search term
-    const filteredActivities = activities.filter((student) => {
-        if (!searchTerm) return true;
-        const term = searchTerm.toLowerCase();
-        const matchesUser = student.user_name?.toLowerCase().includes(term) || student.user_email?.toLowerCase().includes(term);
-        const matchesCourse = student.courses?.some((c) => c.course_title?.toLowerCase().includes(term));
-        return matchesUser || matchesCourse;
-    });
-
-    const filteredPayments = payments.filter((p) => {
-        if (!searchTerm) return true;
-        const term = searchTerm.toLowerCase();
+    if (loading) {
         return (
-            p.transaction_id?.toLowerCase().includes(term) ||
-            p.user?.name?.toLowerCase().includes(term) ||
-            p.user?.email?.toLowerCase().includes(term) ||
-            p.course?.title?.toLowerCase().includes(term)
-        );
-    });
-
-    if (loading && !stats) {
-        return (
-            <div className="min-h-[60vh] flex flex-col items-center justify-center gap-4">
-                <div className="w-12 h-12 rounded-full border-4 border-cyan-500/20 border-t-cyan-500 animate-spin" />
-                <p className="text-slate-400 font-medium text-sm">Loading LMS Control Center...</p>
+            <div className="min-h-[70vh] flex items-center justify-center bg-[#f4f7fb]">
+                <div className="flex flex-col items-center gap-3 text-cyan-600">
+                    <div className="w-10 h-10 rounded-full border-3 border-slate-200 border-t-cyan-600 animate-spin" />
+                    <p className="text-xs font-semibold text-slate-500">Loading Dashboard...</p>
+                </div>
             </div>
         );
     }
 
     return (
-        <div className="p-6 lg:p-8 space-y-8 max-w-7xl mx-auto">
-            {/* Admin Command Center Header Banner */}
-
-                <div className="relative overflow-hidden bg-gradient-to-r from-slate-900 via-slate-900/90 to-cyan-950/40 border border-slate-800/80 rounded-3xl p-8 shadow-2xl backdrop-blur-xl">
-
-                <div className="absolute top-0 right-0 -mt-8 -mr-8 w-64 h-64 rounded-full bg-cyan-500/10 blur-3xl pointer-events-none" />
-
-                <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-                    <div>
-                        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-semibold mb-3">
-                            <Shield className="w-3.5 h-3.5 text-amber-400" />
-                            <span>Administrator Control Console</span>
+        <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-[1600px] mx-auto bg-[#f4f7fb] text-slate-800 min-h-screen">
+            {/* Top Page Header Card */}
+            <div className="rounded-2xl bg-white border border-slate-200/80 p-6 sm:p-8 shadow-sm">
+                <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+                    <div className="space-y-2">
+                        <div className="inline-flex items-center gap-2 rounded-full border border-cyan-200 bg-cyan-50 px-3 py-1 text-[11px] font-semibold text-cyan-800">
+                            <Sparkles className="w-3.5 h-3.5 text-cyan-600" />
+                            <span>Executive Management & Compliance</span>
                         </div>
-                        <h1 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">LMS Command Center</h1>
-                        <p className="text-slate-400 text-sm mt-2 max-w-2xl leading-relaxed">
-                            Monitor student video progress, issue verified completion certificates, edit interactive course curricula, and audit payment transactions in real time.
+                        <h1 className="text-2xl sm:text-3xl font-extrabold text-[#0f172a] tracking-tight">
+                            Executive Dashboard
+                        </h1>
+                        <p className="text-xs sm:text-sm text-slate-500 max-w-2xl leading-relaxed">
+                            Overview of learner progression, course metrics, transactions, and ISO 27001 GRC readiness.
                         </p>
                     </div>
 
-                    <div className="flex flex-wrap gap-3 shrink-0">
+                    {/* Action Buttons */}
+                    <div className="flex flex-wrap items-center gap-2.5">
                         <button
-                            onClick={() => setActiveTab('new_course')}
-                            className="px-5 py-3 rounded-2xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs flex items-center gap-2 transition-all shadow-lg shadow-cyan-500/20 hover:scale-[1.02] active:scale-[0.98]"
+                            onClick={loadDashboardStats}
+                            title="Refresh Data"
+                            className="p-2.5 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200 transition shadow-sm"
                         >
-                            <Plus className="w-4 h-4 stroke-[2.5]" />
-                            <span>Create New Course</span>
+                            <RefreshCw className="w-4 h-4" />
                         </button>
                         <Link
                             to="/admin/builder"
-                            className="px-5 py-3 rounded-2xl bg-slate-800/90 hover:bg-slate-800 text-slate-100 font-bold text-xs flex items-center gap-2 transition-all border border-slate-700 hover:border-slate-600 shadow-md"
+                            className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold border border-slate-200 transition shadow-sm"
                         >
-                            <BookOpen className="w-4 h-4 text-cyan-400" />
+                            <GraduationCap className="w-4 h-4 text-cyan-600" />
                             <span>Course Builder</span>
                         </Link>
                         <Link
                             to="/admin/task-builder"
-                            className="px-5 py-3 rounded-2xl bg-cyan-950/80 hover:bg-cyan-950 text-cyan-400 font-bold text-xs flex items-center gap-2 transition-all border border-cyan-800/80 shadow-md"
+                            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#0f172a] hover:bg-[#1e293b] text-white text-xs font-bold transition shadow-sm"
                         >
-                            <CheckSquare className="w-4 h-4 text-cyan-400" />
-                            <span>ISO 27001 Task Builder</span>
+                            <ListTodo className="w-4 h-4 text-cyan-400" />
+                            <span>Task Builder (ISO 27001)</span>
                         </Link>
                     </div>
+                </div>
 
+                {/* Sub-Navigation Tabs */}
+                <div className="mt-8 pt-4 border-t border-slate-100 flex items-center gap-2 overflow-x-auto">
+                    {[
+                        { id: 'overview', label: 'Executive Overview', icon: LayoutGrid },
+                        { id: 'controls', label: 'Clauses & Controls Explorer', icon: ShieldCheck },
+                        { id: 'upload', label: 'Excel Upload Center', icon: FileSpreadsheet },
+                        { id: 'ledger', label: 'Revenue & Course Analytics', icon: BarChart3 },
+                    ].map((tab) => {
+                        const Icon = tab.icon;
+                        const isSelected = activeTab === tab.id;
+                        return (
+                            <button
+                                key={tab.id}
+                                onClick={() => setActiveTab(tab.id)}
+                                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition shrink-0 ${
+                                    isSelected
+                                        ? 'bg-[#0f172a] text-white shadow-sm'
+                                        : 'bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900 border border-slate-200/80 shadow-sm'
+                                }`}
+                            >
+                                <Icon className={`w-3.5 h-3.5 ${isSelected ? 'text-cyan-400' : 'text-slate-400'}`} />
+                                <span>{tab.label}</span>
+                            </button>
+                        );
+                    })}
                 </div>
             </div>
 
-            {message && (
-                <div className="p-4 rounded-2xl bg-emerald-950/80 border border-emerald-500/30 text-emerald-300 text-sm flex items-center justify-between gap-3 shadow-lg animate-in fade-in">
-                    <div className="flex items-center gap-3">
-                        <CheckCircle className="w-5 h-5 text-emerald-400 shrink-0" />
-                        <span className="font-medium">{message}</span>
-                    </div>
-                    <button onClick={() => setMessage('')} className="text-emerald-400 hover:text-emerald-200 p-1">
-                        <X className="w-4 h-4" />
-                    </button>
-                </div>
-            )}
-
-            {/* Glowing KPI Metrics Grid */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-                <div className="bg-slate-900/90 border border-slate-800/80 rounded-2xl p-5 shadow-lg relative overflow-hidden group hover:border-emerald-500/40 transition">
-                    <div className="flex items-center justify-between text-xs font-semibold text-slate-400">
-                        <span>TOTAL REVENUE</span>
-                        <div className="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
-                            <DollarSign className="w-4 h-4" />
-                        </div>
-                    </div>
-                    <div className="text-2xl sm:text-3xl font-extrabold text-emerald-400 font-sans tracking-tight mt-3">
-                        ${Number(stats?.total_revenue || 0).toFixed(2)}
-                    </div>
-                    <span className="text-[10px] text-slate-500 mt-1 block font-medium">Verified Payments</span>
-                </div>
-
-                <div className="bg-slate-900/90 border border-slate-800/80 rounded-2xl p-5 shadow-lg relative overflow-hidden group hover:border-cyan-500/40 transition">
-                    <div className="flex items-center justify-between text-xs font-semibold text-slate-400">
-                        <span>STUDENTS</span>
-                        <div className="w-8 h-8 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400">
-                            <Users className="w-4 h-4" />
-                        </div>
-                    </div>
-                    <div className="text-2xl sm:text-3xl font-extrabold text-white font-sans tracking-tight mt-3">
-                        {stats?.total_students || 0}
-                    </div>
-                    <span className="text-[10px] text-slate-500 mt-1 block font-medium">Active Enrollees</span>
-                </div>
-
-                <div className="bg-slate-900/90 border border-slate-800/80 rounded-2xl p-5 shadow-lg relative overflow-hidden group hover:border-blue-500/40 transition">
-                    <div className="flex items-center justify-between text-xs font-semibold text-slate-400">
-                        <span>COURSES</span>
-                        <div className="w-8 h-8 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
-                            <BookOpen className="w-4 h-4" />
-                        </div>
-                    </div>
-                    <div className="text-2xl sm:text-3xl font-extrabold text-white font-sans tracking-tight mt-3">
-                        {stats?.total_courses || 0}
-                    </div>
-                    <span className="text-[10px] text-slate-500 mt-1 block font-medium">Published Curricula</span>
-                </div>
-
-                <div className="bg-slate-900/90 border border-slate-800/80 rounded-2xl p-5 shadow-lg relative overflow-hidden group hover:border-indigo-500/40 transition">
-                    <div className="flex items-center justify-between text-xs font-semibold text-slate-400">
-                        <span>ENROLLMENTS</span>
-                        <div className="w-8 h-8 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
-                            <CheckCircle className="w-4 h-4" />
-                        </div>
-                    </div>
-                    <div className="text-2xl sm:text-3xl font-extrabold text-white font-sans tracking-tight mt-3">
-                        {stats?.total_enrollments || 0}
-                    </div>
-                    <span className="text-[10px] text-slate-500 mt-1 block font-medium">Course Registrations</span>
-                </div>
-
-                <div className="bg-slate-900/90 border border-slate-800/80 rounded-2xl p-5 shadow-lg relative overflow-hidden group hover:border-emerald-500/40 transition">
-                    <div className="flex items-center justify-between text-xs font-semibold text-slate-400">
-                        <span>COMPLETED</span>
-                        <div className="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
-                            <Check className="w-4 h-4" />
-                        </div>
-                    </div>
-                    <div className="text-2xl sm:text-3xl font-extrabold text-white font-sans tracking-tight mt-3">
-                        {stats?.completed_enrollments || 0}
-                    </div>
-                    <span className="text-[10px] text-slate-500 mt-1 block font-medium">100% Watched</span>
-                </div>
-
-                <div className="bg-slate-900/90 border border-slate-800/80 rounded-2xl p-5 shadow-lg relative overflow-hidden group hover:border-amber-500/40 transition">
-                    <div className="flex items-center justify-between text-xs font-semibold text-slate-400">
-                        <span>CERTIFICATES</span>
-                        <div className="w-8 h-8 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
-                            <Award className="w-4 h-4" />
-                        </div>
-                    </div>
-                    <div className="text-2xl sm:text-3xl font-extrabold text-amber-400 font-sans tracking-tight mt-3">
-                        {stats?.certificates_issued || 0}
-                    </div>
-                    {stats?.pending_certificates > 0 ? (
-                        <span className="text-[10px] text-amber-300 font-semibold bg-amber-950/80 px-2 py-0.5 rounded mt-1 inline-block">
-                            {stats.pending_certificates} Pending
-                        </span>
-                    ) : (
-                        <span className="text-[10px] text-slate-500 mt-1 block font-medium">Issued Credentials</span>
-                    )}
-                </div>
-            </div>
-
-            {/* VIEW 1: Analytics & Charts Overview (Default Dashboard Tab) */}
-            {(activeTab === 'analytics' || !activeTab) && (
-                <div className="space-y-8">
-                    {/* Analytics Section 1: Visual Charts Grid */}
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        {/* Chart Card 1: Monthly Growth Trends */}
-                        <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-4">
-                            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-                                <div>
-                                    <h3 className="text-base font-bold text-white flex items-center gap-2">
-                                        <TrendingUp className="w-5 h-5 text-cyan-400" />
-                                        <span>Monthly Revenue & Growth Analytics</span>
-                                    </h3>
-                                    <p className="text-xs text-slate-400 mt-0.5 font-mono">Real-time revenue progression ($ USD)</p>
-                                </div>
-                                <span className="px-2.5 py-1 rounded-full bg-cyan-950 text-cyan-400 border border-cyan-800 text-[10px] font-mono font-bold uppercase">
-                                    Live Audit
-                                </span>
-                            </div>
-
-                            {/* Bar Chart Visualization (100% Database Driven) */}
-                            <div className="h-56 flex items-end justify-between gap-3 pt-6 px-2 border-b border-slate-800/80 pb-3">
-                                {(stats?.monthly_trends || []).map((m) => {
-                                    const maxRev = Math.max(...(stats?.monthly_trends || []).map(t => t.revenue), 100);
-                                    const heightPct = m.revenue > 0 ? Math.min(100, Math.max(15, (m.revenue / maxRev) * 100)) : 10;
-                                    return (
-                                        <div key={m.month} className="flex-1 flex flex-col items-center gap-2 group">
-                                            <span className="text-[10px] font-mono text-cyan-400 font-bold opacity-0 group-hover:opacity-100 transition">
-                                                ${m.revenue}
-                                            </span>
-                                            <div className="w-full max-w-[36px] bg-slate-950 rounded-xl overflow-hidden h-36 flex items-end p-1 border border-slate-800">
-                                                <div
-                                                    className="w-full bg-gradient-to-t from-cyan-600 via-blue-500 to-emerald-400 rounded-lg transition-all duration-700 group-hover:brightness-125"
-                                                    style={{ height: `${heightPct}%` }}
-                                                />
-                                            </div>
-                                            <span className="text-xs font-mono text-slate-400 font-bold">{m.month}</span>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-
-                            <div className="flex items-center justify-between text-xs font-mono text-slate-400 pt-1">
-                                <div className="flex items-center gap-2">
-                                    <div className="w-3 h-3 rounded-full bg-cyan-400" />
-                                    <span>Verified Revenue</span>
-                                </div>
-                                <span className="text-emerald-400 font-bold">${Number(stats?.total_revenue || 0).toFixed(2)} Total</span>
-                            </div>
-                        </div>
-
-                        {/* Chart Card 2: Course Completion Rates */}
-                        <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-4">
-                            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-                                <div>
-                                    <h3 className="text-base font-bold text-white flex items-center gap-2">
-                                        <BarChart2 className="w-5 h-5 text-emerald-400" />
-                                        <span>Course Completion & Enrollment Breakdown</span>
-                                    </h3>
-                                    <p className="text-xs text-slate-400 mt-0.5 font-mono">Performance across published curricula</p>
-                                </div>
-                                <span className="px-2.5 py-1 rounded-full bg-emerald-950 text-emerald-400 border border-emerald-800 text-[10px] font-mono font-bold">
-                                    {courses.length} Courses
-                                </span>
-                            </div>
-
-                            <div className="space-y-4 pt-2 max-h-60 overflow-y-auto pr-1">
-                                {courses.map((c) => {
-                                    const enrCount = c.enrollments_count || 0;
-                                    const compCount = c.completions_count || 0;
-                                    const rate = enrCount > 0 ? Math.round((compCount / enrCount) * 100) : 0;
-                                    return (
-                                        <div key={c.id} className="bg-slate-950 border border-slate-800 rounded-2xl p-3.5 space-y-2">
-                                            <div className="flex items-center justify-between text-xs">
-                                                <span className="font-bold text-white truncate max-w-[220px]">{c.title}</span>
-                                                <span className="font-mono text-cyan-400 font-bold">{rate}% Completion</span>
-                                            </div>
-                                            <div className="w-full bg-slate-900 rounded-full h-2 overflow-hidden border border-slate-800">
-                                                <div
-                                                    className="bg-gradient-to-r from-emerald-500 to-cyan-400 h-full rounded-full transition-all duration-500"
-                                                    style={{ width: `${rate}%` }}
-                                                />
-                                            </div>
-                                            <div className="flex items-center justify-between text-[10px] font-mono text-slate-400">
-                                                <span>{enrCount} Enrolled Students</span>
-                                                <span className="text-emerald-400 font-bold">{compCount} Finished (100%)</span>
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        </div>
-
-                    </div>
-
-                    {/* Analytics Section 2: Shortcut Banner to Paginated Users Management Page */}
-                    <div className="bg-gradient-to-r from-slate-900 via-cyan-950/40 to-slate-900 border border-cyan-900/50 rounded-3xl p-6 sm:p-8 shadow-2xl flex flex-col md:flex-row items-center justify-between gap-6">
-                        <div className="space-y-2">
-                            <div className="flex items-center gap-2">
-                                <Users className="w-6 h-6 text-cyan-400" />
-                                <h3 className="text-xl font-bold text-white">Student & User Management Portal</h3>
-                            </div>
-                            <p className="text-xs text-slate-300 max-w-2xl leading-relaxed">
-                                Access the paginated user directory to search students, inspect individual watch logs, and issue 100% completion certificates.
-                            </p>
-                        </div>
-
-                        <button
-                            onClick={() => setActiveTab('users')}
-                            className="px-6 py-3.5 rounded-2xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs font-mono flex items-center gap-2 shrink-0 transition-all shadow-xl shadow-cyan-500/20 hover:scale-105"
-                        >
-                            <span>Manage All Users ({activities.length} Accounts)</span>
-                            <ChevronRight className="w-4 h-4" />
-                        </button>
-                    </div>
-                </div>
-            )}
-
-            {/* VIEW 2: Dedicated Paginated Users Directory Page */}
-            {(activeTab === 'users' || activeTab === 'students') && (
+            {/* TAB 1: EXECUTIVE OVERVIEW */}
+            {activeTab === 'overview' && (
                 <div className="space-y-6">
-                    {/* Header Bar with Search Input */}
-                    <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-2xl">
-                        <div>
-                            <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                                <Users className="w-5 h-5 text-cyan-400" /> Users & Students Directory
-                            </h3>
-                            <p className="text-xs text-slate-400 mt-1">Search, filter, and view detailed progress profiles for registered students.</p>
+                    {/* Top KPI Cards Grid */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                        {/* KPI 1: Total Revenue */}
+                        <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm space-y-3 hover:border-slate-300 transition">
+                            <div className="flex items-center justify-between">
+                                <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Total Revenue</div>
+                                <div className="p-2 rounded-xl bg-emerald-50 border border-emerald-100 text-emerald-700">
+                                    <DollarSign className="w-4 h-4" />
+                                </div>
+                            </div>
+                            <div className="text-3xl font-extrabold text-[#0f172a]">${stats.total_revenue.toLocaleString()}</div>
+                            <div className="text-xs text-emerald-700 font-semibold flex items-center gap-1">
+                                <TrendingUp className="w-3.5 h-3.5" />
+                                <span>{stats.total_payments} completed transactions</span>
+                            </div>
                         </div>
 
-                        {/* Search Input */}
-                        <div className="relative w-full sm:w-72">
-                            <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                            <input
-                                type="text"
-                                placeholder="Search by student name or email..."
-                                value={searchTerm}
-                                onChange={(e) => {
-                                    setSearchTerm(e.target.value);
-                                    setCurrentPage(1);
-                                }}
-                                className="w-full bg-slate-950 border border-slate-800 rounded-2xl pl-10 pr-4 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 font-mono"
-                            />
+                        {/* KPI 2: Active Students */}
+                        <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm space-y-3 hover:border-slate-300 transition">
+                            <div className="flex items-center justify-between">
+                                <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Active Students</div>
+                                <div className="p-2 rounded-xl bg-blue-50 border border-blue-100 text-blue-700">
+                                    <Users className="w-4 h-4" />
+                                </div>
+                            </div>
+                            <div className="text-3xl font-extrabold text-[#0f172a]">{stats.total_students}</div>
+                            <div className="text-xs text-blue-700 font-semibold flex items-center gap-1">
+                                <BookOpen className="w-3.5 h-3.5" />
+                                <span>{stats.total_enrollments} total enrollments</span>
+                            </div>
+                        </div>
+
+                        {/* KPI 3: Published Courses */}
+                        <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm space-y-3 hover:border-slate-300 transition">
+                            <div className="flex items-center justify-between">
+                                <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Published Courses</div>
+                                <div className="p-2 rounded-xl bg-purple-50 border border-purple-100 text-purple-700">
+                                    <GraduationCap className="w-4 h-4" />
+                                </div>
+                            </div>
+                            <div className="text-3xl font-extrabold text-[#0f172a]">{stats.total_courses}</div>
+                            <div className="text-xs text-purple-700 font-semibold flex items-center gap-1">
+                                <Award className="w-3.5 h-3.5" />
+                                <span>{stats.completion_rate}% completion rate</span>
+                            </div>
+                        </div>
+
+                        {/* KPI 4: ISO 27001 Compliance */}
+                        <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm space-y-3 hover:border-slate-300 transition">
+                            <div className="flex items-center justify-between">
+                                <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500">ISO 27001 Compliance</div>
+                                <div className="p-2 rounded-xl bg-amber-50 border border-amber-100 text-amber-700">
+                                    <ShieldCheck className="w-4 h-4" />
+                                </div>
+                            </div>
+                            <div className="text-3xl font-extrabold text-amber-600">{stats.weighted_compliance}%</div>
+                            <div className="text-xs text-amber-700 font-semibold flex items-center gap-1">
+                                <CheckCircle2 className="w-3.5 h-3.5" />
+                                <span>{stats.fully_compliant} / {stats.total_requirements} controls ready</span>
+                            </div>
                         </div>
                     </div>
 
-                    {/* Create New User Form */}
-                    <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 shadow-2xl">
-                        <div className="flex items-center justify-between gap-4 mb-4">
-                            <div>
-                                <h4 className="text-base font-bold text-white">Create New User</h4>
-                                <p className="text-xs text-slate-400 mt-1">Create a student or admin account and assign login credentials in the LMS.</p>
+                    {/* Middle Section: Charts */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        {/* Monthly Trends Area Chart */}
+                        <div className="bg-white border border-slate-200/80 rounded-2xl p-6 shadow-sm space-y-4">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <h3 className="text-sm font-bold text-[#0f172a]">Monthly Enrollment & Revenue Trends</h3>
+                                    <p className="text-xs text-slate-500 mt-0.5">Historical trend records over past 6 months</p>
+                                </div>
+                                <div className="flex items-center gap-3 text-xs font-semibold">
+                                    <span className="flex items-center gap-1.5 text-blue-600">
+                                        <span className="w-2.5 h-2.5 rounded-full bg-blue-500" /> Revenue ($)
+                                    </span>
+                                    <span className="flex items-center gap-1.5 text-emerald-600">
+                                        <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" /> Enrollments
+                                    </span>
+                                </div>
                             </div>
-                            <div className="flex items-center gap-2 text-cyan-400 text-[10px] font-mono uppercase tracking-wider">
-                                <Plus className="w-3.5 h-3.5" />
-                                Admin-only action
+
+                            <div className="h-64 w-full">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <AreaChart data={stats.monthly_trends}>
+                                        <defs>
+                                            <linearGradient id="revGradLight" x1="0" y1="0" x2="0" y2="1">
+                                                <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.25} />
+                                                <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                                            </linearGradient>
+                                            <linearGradient id="enrGradLight" x1="0" y1="0" x2="0" y2="1">
+                                                <stop offset="5%" stopColor="#10b981" stopOpacity={0.25} />
+                                                <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                                            </linearGradient>
+                                        </defs>
+                                        <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                                        <XAxis dataKey="month" stroke="#94a3b8" tick={{ fill: '#64748b', fontSize: 11 }} />
+                                        <YAxis stroke="#94a3b8" tick={{ fill: '#64748b', fontSize: 11 }} />
+                                        <Tooltip
+                                            contentStyle={{
+                                                backgroundColor: '#ffffff',
+                                                borderColor: '#e2e8f0',
+                                                borderRadius: '0.75rem',
+                                                fontSize: '12px',
+                                                color: '#0f172a',
+                                                boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
+                                            }}
+                                        />
+                                        <Area type="monotone" dataKey="revenue" stroke="#3b82f6" strokeWidth={2} fill="url(#revGradLight)" name="Revenue ($)" />
+                                        <Area type="monotone" dataKey="enrollments" stroke="#10b981" strokeWidth={2} fill="url(#enrGradLight)" name="Enrollments" />
+                                    </AreaChart>
+                                </ResponsiveContainer>
                             </div>
                         </div>
 
-                        <form onSubmit={handleCreateUser} className="grid grid-cols-1 md:grid-cols-5 gap-3 items-end">
-                            <div className="md:col-span-1">
-                                <label className="block text-[10px] font-mono uppercase tracking-wider text-slate-400 mb-1.5">Full Name</label>
+                        {/* Course Performance Breakdown */}
+                        <div className="bg-white border border-slate-200/80 rounded-2xl p-6 shadow-sm space-y-4">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <h3 className="text-sm font-bold text-[#0f172a]">Course Performance & Enrollments</h3>
+                                    <p className="text-xs text-slate-500 mt-0.5">Top performing curriculum tracks</p>
+                                </div>
+                                <Link to="/admin/builder" className="text-xs text-blue-600 hover:underline flex items-center gap-1 font-semibold">
+                                    Manage <ChevronRight className="w-3.5 h-3.5" />
+                                </Link>
+                            </div>
+
+                            <div className="h-64 w-full">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={stats.course_analytics}>
+                                        <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                                        <XAxis dataKey="title" stroke="#94a3b8" tick={{ fill: '#64748b', fontSize: 10 }} tickFormatter={(t) => (t.length > 18 ? t.substring(0, 18) + '...' : t)} />
+                                        <YAxis stroke="#94a3b8" tick={{ fill: '#64748b', fontSize: 11 }} />
+                                        <Tooltip
+                                            contentStyle={{
+                                                backgroundColor: '#ffffff',
+                                                borderColor: '#e2e8f0',
+                                                borderRadius: '0.75rem',
+                                                fontSize: '12px',
+                                                color: '#0f172a',
+                                                boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
+                                            }}
+                                        />
+                                        <Bar dataKey="enrollments" fill="#0284c7" radius={[6, 6, 0, 0]} name="Enrollments" />
+                                        <Bar dataKey="revenue" fill="#38bdf8" radius={[6, 6, 0, 0]} name="Revenue ($)" />
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Bottom ISO 27001 Theme Radar & Status Breakdown */}
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        {/* Annex A Theme Radar */}
+                        <div className="lg:col-span-2 bg-white border border-slate-200/80 rounded-2xl p-6 shadow-sm space-y-4">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <h3 className="text-sm font-bold text-[#0f172a]">ISO 27001:2022 Annex A — Theme Radar</h3>
+                                    <p className="text-xs text-slate-500 mt-0.5">Organizational, People, Physical & Technological Control Readiness</p>
+                                </div>
+                                <span className="px-2.5 py-1 rounded-full bg-slate-100 border border-slate-200 text-slate-700 text-[10px] font-semibold">
+                                    114 Controls
+                                </span>
+                            </div>
+
+                            <div className="flex items-center justify-center p-4">
+                                <svg viewBox="0 0 320 320" className="w-full max-w-[360px] h-auto">
+                                    {[20, 40, 60, 80, 100].map((step) => (
+                                        <polygon
+                                            key={step}
+                                            points={Array.from({ length: 8 }, (_, index) => {
+                                                const angle = (Math.PI * 2 * index) / 8 - Math.PI / 2;
+                                                const r = (step / 100) * 105;
+                                                const x = 160 + Math.cos(angle) * r;
+                                                const y = 160 + Math.sin(angle) * r;
+                                                return `${x},${y}`;
+                                            }).join(' ')}
+                                            fill="none"
+                                            stroke="#e2e8f0"
+                                            strokeWidth="1"
+                                        />
+                                    ))}
+
+                                    {Array.from({ length: 8 }, (_, index) => {
+                                        const angle = (Math.PI * 2 * index) / 8 - Math.PI / 2;
+                                        const x = 160 + Math.cos(angle) * 105;
+                                        const y = 160 + Math.sin(angle) * 105;
+                                        return (
+                                            <g key={index}>
+                                                <line x1="160" y1="160" x2={x} y2={y} stroke="#cbd5e1" strokeWidth="1" />
+                                                <text
+                                                    x={160 + Math.cos(angle) * 128}
+                                                    y={160 + Math.sin(angle) * 128}
+                                                    textAnchor="middle"
+                                                    dominantBaseline="middle"
+                                                    fontSize="9"
+                                                    fill="#64748b"
+                                                    fontWeight="600"
+                                                >
+                                                    {radarThemes[index]}
+                                                </text>
+                                            </g>
+                                        );
+                                    })}
+
+                                    <polygon points={radarPoints} fill="rgba(14, 165, 233, 0.2)" stroke="#0284c7" strokeWidth="2" />
+
+                                    {themeScores.map((score, index) => {
+                                        const angle = (Math.PI * 2 * index) / themeScores.length - Math.PI / 2;
+                                        const r = (score / 100) * 105;
+                                        const x = 160 + Math.cos(angle) * r;
+                                        const y = 160 + Math.sin(angle) * r;
+                                        return <circle key={index} cx={x} cy={y} r="4" fill="#0284c7" stroke="#ffffff" strokeWidth="2" />;
+                                    })}
+                                </svg>
+                            </div>
+                        </div>
+
+                        {/* Gap Analysis Summary */}
+                        <div className="bg-white border border-slate-200/80 rounded-2xl p-6 shadow-sm space-y-5 flex flex-col justify-between">
+                            <div>
+                                <h3 className="text-sm font-bold text-[#0f172a]">Compliance Status Distribution</h3>
+                                <p className="text-xs text-slate-500 mt-0.5">Weighted calculation breakdown</p>
+
+                                <div className="mt-6 space-y-3">
+                                    <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-between">
+                                        <div className="flex items-center gap-2.5">
+                                            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                                            <span className="text-xs font-semibold text-emerald-900">Fully Compliant</span>
+                                        </div>
+                                        <span className="text-xs font-bold text-emerald-700">{stats.fully_compliant} items</span>
+                                    </div>
+
+                                    <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-between">
+                                        <div className="flex items-center gap-2.5">
+                                            <AlertCircle className="w-4 h-4 text-amber-600" />
+                                            <span className="text-xs font-semibold text-amber-900">Partially Compliant</span>
+                                        </div>
+                                        <span className="text-xs font-bold text-amber-700">{stats.partially_compliant} items</span>
+                                    </div>
+
+                                    <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-100 flex items-center justify-between">
+                                        <div className="flex items-center gap-2.5">
+                                            <AlertTriangle className="w-4 h-4 text-rose-600" />
+                                            <span className="text-xs font-semibold text-rose-900">Non-Compliant Gaps</span>
+                                        </div>
+                                        <span className="text-xs font-bold text-rose-700">{stats.not_compliant} items</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <Link
+                                to="/admin/task-builder"
+                                className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-[#0f172a] hover:bg-[#1e293b] text-white font-bold text-xs transition shadow-sm"
+                            >
+                                <ListTodo className="w-4 h-4 text-cyan-400" />
+                                Remediate Tasks in Builder
+                            </Link>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* TAB 2: CLAUSES & CONTROLS EXPLORER (Table matching user's reference screenshot) */}
+            {activeTab === 'controls' && (
+                <div className="space-y-4">
+                    {/* Filter & Search Header Card */}
+                    <div className="bg-white border border-slate-200/80 rounded-2xl p-6 shadow-sm space-y-4">
+                        <div>
+                            <h2 className="text-2xl font-bold text-[#0f172a]">ISO 27001:2022 Controls Explorer</h2>
+                            <p className="text-xs text-slate-500 mt-1">Controls requiring assessment and remediation</p>
+                        </div>
+
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-2">
+                            <div className="relative flex-1 max-w-md">
+                                <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
                                 <input
                                     type="text"
-                                    required
-                                    value={newUserForm.name}
-                                    onChange={(e) => setNewUserForm({ ...newUserForm, name: e.target.value })}
-                                    placeholder="Jane Doe"
-                                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500"
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    placeholder="Search control ID, title, or owner..."
+                                    className="w-full bg-white border border-slate-200 rounded-xl pl-10 pr-3 py-2 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 shadow-sm transition"
                                 />
                             </div>
-                            <div className="md:col-span-1">
-                                <label className="block text-[10px] font-mono uppercase tracking-wider text-slate-400 mb-1.5">Email</label>
-                                <input
-                                    type="email"
-                                    required
-                                    value={newUserForm.email}
-                                    onChange={(e) => setNewUserForm({ ...newUserForm, email: e.target.value })}
-                                    placeholder="student@example.com"
-                                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500"
-                                />
-                            </div>
-                            <div className="md:col-span-1">
-                                <label className="block text-[10px] font-mono uppercase tracking-wider text-slate-400 mb-1.5">Password</label>
-                                <input
-                                    type="text"
-                                    required
-                                    value={newUserForm.password}
-                                    onChange={(e) => setNewUserForm({ ...newUserForm, password: e.target.value })}
-                                    placeholder="Temporary password"
-                                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500"
-                                />
-                            </div>
-                            <div className="md:col-span-1">
-                                <label className="block text-[10px] font-mono uppercase tracking-wider text-slate-400 mb-1.5">Role</label>
+
+                            <div className="flex items-center gap-3">
                                 <select
-                                    value={newUserForm.role}
-                                    onChange={(e) => setNewUserForm({ ...newUserForm, role: e.target.value })}
-                                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-cyan-500"
+                                    value={selectedTheme}
+                                    onChange={(e) => setSelectedTheme(e.target.value)}
+                                    className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-700 font-medium focus:outline-none focus:border-blue-500 shadow-sm"
                                 >
-                                    <option value="user">User</option>
-                                    <option value="admin">Admin</option>
+                                    <option value="All">All Themes</option>
+                                    <option value="Organizational">Organizational</option>
+                                    <option value="People">People</option>
+                                    <option value="Physical">Physical</option>
+                                    <option value="Technological">Technological</option>
+                                </select>
+
+                                <select
+                                    value={selectedStatus}
+                                    onChange={(e) => setSelectedStatus(e.target.value)}
+                                    className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-700 font-medium focus:outline-none focus:border-blue-500 shadow-sm"
+                                >
+                                    <option value="All">All Statuses</option>
+                                    <option value="Compliant">Compliant</option>
+                                    <option value="Partially Compliant">Partially Compliant</option>
+                                    <option value="Not Compliant">Not Compliant</option>
                                 </select>
                             </div>
-                            <div className="md:col-span-1">
-                                <button
-                                    type="submit"
-                                    disabled={creatingUser}
-                                    className="w-full px-4 py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs transition disabled:opacity-50"
-                                >
-                                    {creatingUser ? 'Creating...' : 'Create User'}
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-
-                    {/* Paginated Users Data Table */}
-                    <div className="bg-slate-900/90 border border-slate-800 rounded-3xl overflow-hidden shadow-2xl">
-                        {(() => {
-                            const filtered = activities.filter((u) =>
-                                u.user_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                                u.user_email?.toLowerCase().includes(searchTerm.toLowerCase())
-                            );
-
-                            const totalPages = Math.ceil(filtered.length / usersPerPage) || 1;
-                            const startIndex = (currentPage - 1) * usersPerPage;
-                            const paginatedUsers = filtered.slice(startIndex, startIndex + usersPerPage);
-
-                            if (filtered.length === 0) {
-                                return (
-                                    <div className="p-12 text-center text-slate-500 text-xs font-mono">
-                                        No users found matching "{searchTerm}".
-                                    </div>
-                                );
-                            }
-
-                            return (
-                                <>
-                                    <div className="overflow-x-auto">
-                                        <table className="w-full text-left text-xs">
-                                            <thead className="bg-slate-950 text-slate-400 font-mono text-[11px] uppercase tracking-wider border-b border-slate-800">
-                                                <tr>
-                                                    <th className="p-4 w-16"># ID</th>
-                                                    <th className="p-4">Student Profile</th>
-                                                    <th className="p-4">Joined Date</th>
-                                                    <th className="p-4 text-center">Courses Enrolled</th>
-                                                    <th className="p-4 text-center">100% Finished</th>
-                                                    <th className="p-4 text-right">Action</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody className="divide-y divide-slate-800/80 font-sans">
-                                                {paginatedUsers.map((student) => {
-                                                    const finishedCount = student.courses?.filter(c => c.progress_percentage >= 100).length || 0;
-                                                    return (
-                                                        <tr key={student.user_id} className="hover:bg-slate-800/40 transition">
-                                                            <td className="p-4 font-mono text-slate-500 font-bold">
-                                                                #{student.user_id}
-                                                            </td>
-                                                            <td className="p-4">
-                                                                <div className="flex items-center gap-3">
-                                                                    <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-cyan-600 to-blue-600 text-white font-bold flex items-center justify-center text-xs shadow">
-                                                                        {student.user_name?.charAt(0).toUpperCase()}
-                                                                    </div>
-                                                                    <div>
-                                                                        <span className="font-bold text-white block">{student.user_name}</span>
-                                                                        <span className="text-[11px] text-cyan-400 font-mono block">{student.user_email}</span>
-                                                                    </div>
-                                                                </div>
-                                                            </td>
-                                                            <td className="p-4 font-mono text-slate-400 text-xs">
-                                                                {student.joined_at}
-                                                            </td>
-                                                            <td className="p-4 text-center font-mono font-bold text-slate-200">
-                                                                {student.courses?.length || 0} Courses
-                                                            </td>
-                                                            <td className="p-4 text-center font-mono">
-                                                                {finishedCount > 0 ? (
-                                                                    <span className="px-2.5 py-1 rounded-full bg-emerald-950 text-emerald-400 border border-emerald-800 font-bold text-[10px]">
-                                                                        ✓ {finishedCount} Finished
-                                                                    </span>
-                                                                ) : (
-                                                                    <span className="text-slate-500 text-xs">-</span>
-                                                                )}
-                                                            </td>
-                                                            <td className="p-4 text-right">
-                                                                <button
-                                                                    onClick={() => handleViewStudentDetail(student.user_id)}
-                                                                    className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-cyan-400 hover:text-white font-bold text-xs transition flex items-center gap-1.5 ml-auto border border-slate-700"
-                                                                >
-                                                                    <Eye className="w-3.5 h-3.5 text-cyan-400" />
-                                                                    <span>See Details</span>
-                                                                </button>
-                                                            </td>
-                                                        </tr>
-                                                    );
-                                                })}
-                                            </tbody>
-                                        </table>
-                                    </div>
-
-                                    {/* Pagination Controls Footer */}
-                                    <div className="p-4 border-t border-slate-800 bg-slate-950/60 flex flex-col sm:flex-row items-center justify-between gap-4 font-mono text-xs">
-                                        <span className="text-slate-400">
-                                            Showing <span className="text-white font-bold">{startIndex + 1}</span> to{' '}
-                                            <span className="text-white font-bold">{Math.min(startIndex + usersPerPage, filtered.length)}</span> of{' '}
-                                            <span className="text-cyan-400 font-bold">{filtered.length}</span> students
-                                        </span>
-
-                                        <div className="flex items-center gap-2">
-                                            <button
-                                                disabled={currentPage === 1}
-                                                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                                                className="px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 disabled:opacity-40 disabled:hover:bg-slate-800 text-xs font-bold transition flex items-center gap-1"
-                                            >
-                                                <ChevronLeft className="w-3.5 h-3.5" /> Previous
-                                            </button>
-
-                                            {Array.from({ length: totalPages }, (_, i) => i + 1).map((pg) => (
-                                                <button
-                                                    key={pg}
-                                                    onClick={() => setCurrentPage(pg)}
-                                                    className={`w-8 h-8 rounded-xl font-bold transition ${
-                                                        currentPage === pg
-                                                            ? 'bg-cyan-500 text-slate-950 shadow-md'
-                                                            : 'bg-slate-900 text-slate-400 hover:bg-slate-800'
-                                                    }`}
-                                                >
-                                                    {pg}
-                                                </button>
-                                            ))}
-
-                                            <button
-                                                disabled={currentPage === totalPages}
-                                                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                                                className="px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 disabled:opacity-40 disabled:hover:bg-slate-800 text-xs font-bold transition flex items-center gap-1"
-                                            >
-                                                Next <ChevronRight className="w-3.5 h-3.5" />
-                                            </button>
-                                        </div>
-                                    </div>
-                                </>
-                            );
-                        })()}
-                    </div>
-                </div>
-            )}
-
-            {/* VIEW 3: Emergency Support Escalation Tickets Table */}
-            {activeTab === 'support' && (
-                <div className="space-y-6">
-                    <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-2xl">
-                        <div>
-                            <div className="flex items-center gap-2">
-                                <ShieldAlert className="w-6 h-6 text-rose-500 animate-pulse" />
-                                <h3 className="text-xl font-bold text-white">Emergency Support Escalation Requests</h3>
-                            </div>
-                            <p className="text-xs text-slate-400 mt-1">Real-time incident response submissions, client contact info & breach details.</p>
-                        </div>
-
-                        <button
-                            onClick={fetchEmergencyTickets}
-                            className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-cyan-400 font-mono text-xs font-bold transition flex items-center gap-2 border border-slate-700 shrink-0"
-                        >
-                            <RefreshCw className={`w-3.5 h-3.5 ${loadingTickets ? 'animate-spin' : ''}`} />
-                            <span>Refresh Logs</span>
-                        </button>
-                    </div>
-
-                    <div className="bg-slate-900/90 border border-slate-800 rounded-3xl overflow-hidden shadow-2xl">
-                        {emergencyTickets.length === 0 ? (
-                            <div className="p-12 text-center text-slate-500 text-xs font-mono">
-                                No emergency incident requests recorded yet.
-                            </div>
-                        ) : (
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-left text-xs">
-                                    <thead className="bg-slate-950 text-slate-400 font-mono text-[11px] uppercase tracking-wider border-b border-slate-800">
-                                        <tr>
-                                            <th className="p-4 w-16"># Ticket</th>
-                                            <th className="p-4">Client / Organization</th>
-                                            <th className="p-4">Contact Info</th>
-                                            <th className="p-4">Incident Description</th>
-                                            <th className="p-4 text-center">Status</th>
-                                            <th className="p-4 text-right">Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-slate-800/80 font-sans">
-                                        {emergencyTickets.map((t) => (
-                                            <tr key={t.id} className="hover:bg-slate-800/40 transition">
-                                                <td className="p-4 font-mono text-rose-400 font-bold">
-                                                    #{t.id}
-                                                </td>
-                                                <td className="p-4">
-                                                    <span className="font-bold text-white block">{t.name}</span>
-                                                    <span className="text-[11px] text-slate-400 font-mono block">Submitted: {new Date(t.created_at).toLocaleString()}</span>
-                                                </td>
-                                                <td className="p-4 font-mono">
-                                                    <div className="space-y-1">
-                                                        <a href={`mailto:${t.email}`} className="text-cyan-400 hover:underline flex items-center gap-1.5">
-                                                            <Mail className="w-3.5 h-3.5 text-cyan-400" />
-                                                            <span>{t.email}</span>
-                                                        </a>
-                                                        <a href={`tel:${t.contact}`} className="text-emerald-400 hover:underline flex items-center gap-1.5">
-                                                            <PhoneCall className="w-3.5 h-3.5 text-emerald-400" />
-                                                            <span>{t.contact}</span>
-                                                        </a>
-                                                    </div>
-                                                </td>
-                                                <td className="p-4 max-w-sm">
-                                                    <p className="text-slate-200 text-xs leading-relaxed bg-slate-950 p-3 rounded-xl border border-slate-800 whitespace-pre-wrap">
-                                                        {t.description}
-                                                    </p>
-                                                </td>
-                                                <td className="p-4 text-center font-mono">
-                                                    {t.status === 'resolved' ? (
-                                                        <span className="px-2.5 py-1 rounded-full bg-emerald-950 text-emerald-400 border border-emerald-800 font-bold text-[10px]">
-                                                            ✓ Resolved
-                                                        </span>
-                                                    ) : t.status === 'in_progress' ? (
-                                                        <span className="px-2.5 py-1 rounded-full bg-cyan-950 text-cyan-400 border border-cyan-800 font-bold text-[10px] animate-pulse">
-                                                            ⚡ In Progress
-                                                        </span>
-                                                    ) : (
-                                                        <span className="px-2.5 py-1 rounded-full bg-rose-950 text-rose-400 border border-rose-800 font-bold text-[10px] animate-pulse">
-                                                            🚨 Pending Action
-                                                        </span>
-                                                    )}
-                                                </td>
-                                                <td className="p-4 text-right">
-                                                    <div className="flex items-center justify-end gap-2">
-                                                        {t.status !== 'in_progress' && (
-                                                            <button
-                                                                onClick={() => handleUpdateTicketStatus(t.id, 'in_progress')}
-                                                                className="px-3 py-1.5 rounded-lg bg-cyan-950 text-cyan-300 hover:bg-cyan-900 border border-cyan-800 text-[11px] font-semibold transition"
-                                                            >
-                                                                Investigate
-                                                            </button>
-                                                        )}
-                                                        {t.status !== 'resolved' && (
-                                                            <button
-                                                                onClick={() => handleUpdateTicketStatus(t.id, 'resolved')}
-                                                                className="px-3 py-1.5 rounded-lg bg-emerald-950 text-emerald-300 hover:bg-emerald-900 border border-emerald-800 text-[11px] font-semibold transition"
-                                                            >
-                                                                Mark Resolved
-                                                            </button>
-                                                        )}
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        )}
-                    </div>
-                </div>
-            )}
-
-
-
-            {/* TAB 2: Course & Video Curriculum Builder */}
-            {activeTab === 'builder' && (
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-                    {/* Courses Sidebar */}
-                    <div className="lg:col-span-4 bg-slate-900/90 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-4">
-                        <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-                            <h3 className="font-bold text-white text-sm">Select Course to Edit</h3>
-                            <button
-                                onClick={() => setActiveTab('new_course')}
-                                className="text-xs text-cyan-400 font-semibold hover:underline flex items-center gap-1"
-                            >
-                                <Plus className="w-3.5 h-3.5" /> New Course
-                            </button>
-                        </div>
-
-                        <div className="space-y-2.5 max-h-[600px] overflow-y-auto pr-1">
-                            {courses.map((c) => (
-                                <div
-                                    key={c.id}
-                                    className={`p-4 rounded-2xl border transition-all flex flex-col gap-2.5 ${
-                                        selectedCourseForBuilder?.id === c.id
-                                            ? 'bg-cyan-950/40 border-cyan-500/80 shadow-lg shadow-cyan-950/50'
-                                            : 'bg-slate-950/60 border-slate-800/80 hover:bg-slate-800/50'
-                                    }`}
-                                >
-                                    <div
-                                        className="cursor-pointer"
-                                        onClick={async () => {
-                                            const full = await api.getCourseDetails(c.id);
-                                            setSelectedCourseForBuilder(full);
-                                        }}
-                                    >
-                                        <div className="font-bold text-sm text-white line-clamp-1">{c.title}</div>
-                                        <div className="mt-1.5 text-xs text-slate-400 flex items-center justify-between">
-                                            <span>
-                                                {c.level} • {c.sections?.length || 0} Sections
-                                            </span>
-                                            <span className="text-emerald-400 font-bold font-mono">${c.price || 49}</span>
-                                        </div>
-                                    </div>
-
-                                    <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between text-xs">
-                                        <button
-                                            onClick={() => openEditCourseModal(c)}
-                                            className="text-cyan-400 hover:text-cyan-300 flex items-center gap-1.5 font-semibold text-xs"
-                                        >
-                                            <Edit3 className="w-3.5 h-3.5" /> Edit Settings
-                                        </button>
-                                        <button
-                                            onClick={() => handleDeleteCourse(c.id, c.title)}
-                                            className="text-slate-500 hover:text-red-400 p-1 transition"
-                                            title="Delete Course"
-                                        >
-                                            <Trash2 className="w-3.5 h-3.5" />
-                                        </button>
-                                    </div>
-                                </div>
-                            ))}
                         </div>
                     </div>
 
-                    {/* Builder Main Curriculum Area */}
-                    <div className="lg:col-span-8 space-y-6">
-                        {selectedCourseForBuilder ? (
-                            <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-xl space-y-6">
-                                <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-800 gap-4">
-                                    <div>
-                                        <span className="text-xs font-semibold text-cyan-400 bg-cyan-950/80 px-3 py-1 rounded-full border border-cyan-800">
-                                            Curriculum & Content Editor
-                                        </span>
-                                        <h2 className="text-2xl font-extrabold text-white mt-2 tracking-tight">
-                                            {selectedCourseForBuilder.title}
-                                        </h2>
-                                        <p className="text-xs text-slate-400 mt-1">{selectedCourseForBuilder.description}</p>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <button
-                                            onClick={() => openEditCourseModal(selectedCourseForBuilder)}
-                                            className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-cyan-400 text-xs font-semibold flex items-center gap-2 border border-slate-700 transition"
-                                        >
-                                            <Settings className="w-4 h-4" />
-                                            <span>Settings</span>
-                                        </button>
-                                    </div>
-                                </div>
-
-                                {/* Sections & Lessons List */}
-                                <div className="space-y-6">
-                                    {selectedCourseForBuilder.sections?.map((sec, sIdx) => (
-                                        <div key={sec.id} className="bg-slate-950/80 border border-slate-800 rounded-2xl overflow-hidden shadow-lg">
-                                            <div className="p-4 bg-slate-900/90 border-b border-slate-800 flex items-center justify-between gap-3">
-                                                <div>
-                                                    <span className="text-xs font-bold text-cyan-400">
-                                                        Module {sIdx + 1}: {sec.title}
-                                                    </span>
-                                                    {sec.description && (
-                                                        <p className="text-xs text-slate-400 mt-0.5">{sec.description}</p>
-                                                    )}
-                                                </div>
-                                                <div className="flex items-center gap-2 shrink-0">
-                                                    <button
-                                                        onClick={() => openEditSectionModal(sec)}
-                                                        className="p-1.5 rounded-lg text-slate-400 hover:text-cyan-400 transition"
-                                                        title="Edit Section Title"
-                                                    >
-                                                        <Edit3 className="w-4 h-4" />
-                                                    </button>
-                                                    <button
-                                                        onClick={() => setLessonModalSectionId(sec.id)}
-                                                        className="px-3 py-1.5 rounded-xl bg-cyan-500/10 hover:bg-cyan-500 text-cyan-400 hover:text-slate-950 font-bold text-xs flex items-center gap-1.5 transition border border-cyan-500/30"
-                                                    >
-                                                        <Plus className="w-3.5 h-3.5" />
-                                                        <span>Add Lesson</span>
-                                                    </button>
-                                                    <button
-                                                        onClick={() => handleDeleteSection(sec.id)}
-                                                        className="p-1.5 rounded-lg text-slate-500 hover:text-red-400 transition"
-                                                        title="Delete Section"
-                                                    >
-                                                        <Trash2 className="w-4 h-4" />
-                                                    </button>
-                                                </div>
-                                            </div>
-
-                                            <div className="divide-y divide-slate-800/40 p-2">
-                                                {sec.lessons?.length === 0 ? (
-                                                    <div className="p-4 text-center text-xs text-slate-500">
-                                                        No lessons in this module yet. Click "+ Add Lesson" above.
-                                                    </div>
-                                                ) : (
-                                                    sec.lessons?.map((les, lIdx) => (
-                                                        <div
-                                                            key={les.id}
-                                                            className="p-3.5 flex items-center justify-between gap-4 hover:bg-slate-900/60 rounded-xl transition"
-                                                        >
-                                                            <div className="flex items-center gap-3">
-                                                                <div className="w-7 h-7 rounded-lg bg-cyan-950 border border-cyan-800/80 flex items-center justify-center text-cyan-400 text-xs font-bold font-mono">
-                                                                    {lIdx + 1}
-                                                                </div>
-                                                                <div>
-                                                                    <div className="text-xs font-bold text-white">{les.title}</div>
-                                                                    <div className="text-[11px] text-slate-400 flex items-center gap-2 mt-0.5">
-                                                                        <span className="text-cyan-400 font-mono">
-                                                                            ID: {les.youtube_video_id || 'None'}
-                                                                        </span>
-                                                                        <span>•</span>
-                                                                        <span>{Math.round((les.duration_seconds || 600) / 60)} mins</span>
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-
-                                                            <div className="flex items-center gap-2">
-                                                                <button
-                                                                    onClick={() => openEditLessonModal(les)}
-                                                                    className="px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-cyan-400 text-xs font-semibold flex items-center gap-1 border border-slate-700 transition"
-                                                                >
-                                                                    <Edit3 className="w-3.5 h-3.5" />
-                                                                    <span>Edit</span>
-                                                                </button>
-                                                                <button
-                                                                    onClick={() => handleDeleteLesson(les.id)}
-                                                                    className="p-1.5 rounded-lg text-slate-500 hover:text-red-400 transition"
-                                                                    title="Delete Lesson"
-                                                                >
-                                                                    <Trash2 className="w-3.5 h-3.5" />
-                                                                </button>
-                                                            </div>
-                                                        </div>
-                                                    ))
-                                                )}
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-
-                                {/* Add New Section Form */}
-                                <form onSubmit={handleAddSection} className="p-5 bg-slate-950/90 border border-slate-800 rounded-2xl space-y-3">
-                                    <h4 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
-                                        <Plus className="w-4 h-4 text-cyan-400" /> Add New Curriculum Section
-                                    </h4>
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                        <input
-                                            type="text"
-                                            placeholder="Section Title (e.g. Section 3: Advanced Cloud Threat Response)"
-                                            value={newSectionTitle}
-                                            onChange={(e) => setNewSectionTitle(e.target.value)}
-                                            required
-                                            className="bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500"
-                                        />
-                                        <input
-                                            type="text"
-                                            placeholder="Description (Optional)"
-                                            value={newSectionDesc}
-                                            onChange={(e) => setNewSectionDesc(e.target.value)}
-                                            className="bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500"
-                                        />
-                                    </div>
-                                    <button
-                                        type="submit"
-                                        disabled={addingSection}
-                                        className="px-4 py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs transition shadow-md"
-                                    >
-                                        {addingSection ? 'Creating Section...' : 'Add Section'}
-                                    </button>
-                                </form>
-                            </div>
-                        ) : (
-                            <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-12 text-center text-slate-500 text-sm">
-                                Select a course from the left sidebar to edit curriculum, YouTube video links, or course settings.
-                            </div>
-                        )}
-                    </div>
-                </div>
-            )}
-
-
-
-
-            {/* TAB 3: Payment Transactions */}
-            {activeTab === 'payments' && (
-                <div className="bg-slate-900/90 border border-slate-800 rounded-3xl overflow-hidden shadow-xl">
-                    <div className="p-6 border-b border-slate-800 flex items-center justify-between flex-wrap gap-4">
-                        <div>
-                            <h3 className="text-lg font-bold text-white">Course Payment Transactions</h3>
-                            <p className="text-xs text-slate-400 mt-1">Real-time audit log of all student course unlocks and payments</p>
-                        </div>
-                        <span className="text-xs font-bold text-emerald-400 bg-emerald-950/80 px-3.5 py-1.5 rounded-xl border border-emerald-800/80 font-mono">
-                            {filteredPayments.length} Transactions
-                        </span>
-                    </div>
-
-                    {filteredPayments.length === 0 ? (
-                        <div className="p-12 text-center text-slate-500 text-sm">
-                            {searchTerm ? 'No transactions match your search filter.' : 'No payment transactions recorded yet.'}
-                        </div>
-                    ) : (
+                    {/* Table matching the clean structure from user screenshot */}
+                    <div className="bg-white border border-slate-200/80 rounded-2xl shadow-sm overflow-hidden">
                         <div className="overflow-x-auto">
-                            <table className="w-full text-left text-xs">
-                                <thead className="bg-slate-950 text-slate-400 font-semibold uppercase text-[11px] border-b border-slate-800">
+                            <table className="w-full text-left text-xs text-slate-700">
+                                <thead className="bg-[#f8fafc] text-slate-400 uppercase tracking-wider font-semibold text-[10px] border-b border-slate-100">
                                     <tr>
-                                        <th className="p-4">Transaction ID</th>
-                                        <th className="p-4">Student</th>
-                                        <th className="p-4">Course</th>
-                                        <th className="p-4">Amount</th>
-                                        <th className="p-4">Method</th>
-                                        <th className="p-4">Status</th>
-                                        <th className="p-4">Date</th>
+                                        <th className="p-4 font-bold">CONTROL ID</th>
+                                        <th className="p-4 font-bold">THEME & TITLE</th>
+                                        <th className="p-4 font-bold">ITEM COUNT</th>
+                                        <th className="p-4 font-bold">MAX COVERAGE</th>
+                                        <th className="p-4 font-bold">OWNERSHIP</th>
+                                        <th className="p-4 font-bold">STATUS</th>
+                                        <th className="p-4 font-bold text-right pr-6">ACTIONS</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-slate-800/60 text-slate-300">
-                                    {filteredPayments.map((p) => (
-                                        <tr key={p.id} className="hover:bg-slate-800/40 transition">
-                                            <td className="p-4 font-mono font-bold text-cyan-400">{p.transaction_id}</td>
-                                            <td className="p-4">
-                                                <div className="font-semibold text-white">{p.user?.name || p.payer_name || 'Student'}</div>
-                                                <div className="text-[10px] text-slate-500">{p.user?.email || p.payer_email}</div>
-                                            </td>
-                                            <td className="p-4 font-medium text-slate-200">{p.course?.title || 'CyberLoy Course'}</td>
-                                            <td className="p-4 font-mono font-bold text-emerald-400">
-                                                ${Number(p.amount).toFixed(2)} {p.currency || 'USD'}
-                                            </td>
-                                            <td className="p-4 capitalize text-slate-400 font-medium">{p.payment_method}</td>
-                                            <td className="p-4">
-                                                <span className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase bg-emerald-950 text-emerald-400 border border-emerald-800">
-                                                    {p.status}
-                                                </span>
-                                            </td>
-                                            <td className="p-4 text-slate-500 font-mono">
-                                                {new Date(p.created_at).toLocaleDateString()}
+                                <tbody className="divide-y divide-slate-100">
+                                    {paginatedControls.length === 0 ? (
+                                        <tr>
+                                            <td colSpan="7" className="p-8 text-center text-slate-400 text-xs">
+                                                No controls found matching filter criteria.
                                             </td>
                                         </tr>
-                                    ))}
+                                    ) : (
+                                        paginatedControls.map((c) => (
+                                            <tr key={c.id} className="hover:bg-slate-50/70 transition">
+                                                <td className="p-4 font-bold text-[#0f172a]">{c.id}</td>
+                                                <td className="p-4">
+                                                    <div className="font-semibold text-[#0f172a]">{c.title}</div>
+                                                    <div className="text-[11px] text-slate-400 mt-0.5">{c.theme} • {c.clause}</div>
+                                                </td>
+                                                <td className="p-4">
+                                                    <span className="px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 text-[11px] font-semibold border border-blue-100">
+                                                        {c.items}
+                                                    </span>
+                                                </td>
+                                                <td className="p-4 font-medium text-slate-600">{c.coverage}</td>
+                                                <td className="p-4 font-medium text-[#0f172a]">{c.owner}</td>
+                                                <td className="p-4">
+                                                    <span
+                                                        className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${
+                                                            c.status === 'Compliant'
+                                                                ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                                                                : c.status === 'Partially Compliant'
+                                                                ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                                                                : 'bg-slate-100 text-slate-600 border border-slate-200'
+                                                        }`}
+                                                    >
+                                                        <span
+                                                            className={`w-1.5 h-1.5 rounded-full ${
+                                                                c.status === 'Compliant'
+                                                                    ? 'bg-blue-600'
+                                                                    : c.status === 'Partially Compliant'
+                                                                    ? 'bg-amber-600'
+                                                                    : 'bg-slate-400'
+                                                            }`}
+                                                        />
+                                                        {c.status}
+                                                    </span>
+                                                </td>
+                                                <td className="p-4 text-right pr-6 space-x-2">
+                                                    <button
+                                                        onClick={() => navigate('/admin/task-builder')}
+                                                        className="text-xs font-semibold text-slate-600 hover:text-slate-900 transition px-2 py-1"
+                                                    >
+                                                        See Details &gt;
+                                                    </button>
+                                                    <button
+                                                        onClick={() => navigate('/admin/task-builder')}
+                                                        className="px-3.5 py-1.5 rounded-lg bg-[#0f172a] hover:bg-[#1e293b] text-white text-xs font-semibold shadow-sm transition"
+                                                    >
+                                                        Complete
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        ))
+                                    )}
                                 </tbody>
                             </table>
                         </div>
-                    )}
+
+                        {/* Pagination Footer */}
+                        <div className="p-4 border-t border-slate-100 bg-[#f8fafc] flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-600">
+                            <div className="flex items-center gap-3">
+                                <span>
+                                    Showing <span className="text-[#0f172a] font-bold">{Math.min(filteredControls.length, (controlsPage - 1) * controlsPerPage + 1)}</span> to{' '}
+                                    <span className="text-[#0f172a] font-bold">{Math.min(controlsPage * controlsPerPage, filteredControls.length)}</span> of{' '}
+                                    <span className="text-blue-600 font-bold">{filteredControls.length}</span> controls
+                                </span>
+                                <span className="text-slate-300">•</span>
+                                <div className="flex items-center gap-1.5">
+                                    <span className="text-slate-500">Per page:</span>
+                                    <select
+                                        value={controlsPerPage}
+                                        onChange={(e) => {
+                                            setControlsPerPage(Number(e.target.value));
+                                            setControlsPage(1);
+                                        }}
+                                        className="bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs text-slate-700 font-medium focus:outline-none focus:border-blue-500 shadow-xs"
+                                    >
+                                        <option value={5}>5</option>
+                                        <option value={6}>6</option>
+                                        <option value={10}>10</option>
+                                        <option value={20}>20</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                                <button
+                                    disabled={controlsPage === 1}
+                                    onClick={() => setControlsPage((p) => Math.max(1, p - 1))}
+                                    className="px-3 py-1.5 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 disabled:opacity-40 text-xs font-semibold transition shadow-xs"
+                                >
+                                    Previous
+                                </button>
+
+                                {Array.from({ length: totalControlPages }, (_, i) => i + 1).map((pg) => (
+                                    <button
+                                        key={pg}
+                                        onClick={() => setControlsPage(pg)}
+                                        className={`w-7 h-7 rounded-lg text-xs font-bold transition ${
+                                            controlsPage === pg
+                                                ? 'bg-[#0f172a] text-white shadow-sm'
+                                                : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
+                                        }`}
+                                    >
+                                        {pg}
+                                    </button>
+                                ))}
+
+                                <button
+                                    disabled={controlsPage === totalControlPages}
+                                    onClick={() => setControlsPage((p) => Math.min(totalControlPages, p + 1))}
+                                    className="px-3 py-1.5 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 disabled:opacity-40 text-xs font-semibold transition shadow-xs"
+                                >
+                                    Next
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             )}
 
-            {/* TAB 4: Create Course */}
-            {activeTab === 'new_course' && (
-                <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-8 shadow-2xl max-w-3xl mx-auto space-y-6">
+            {/* TAB 3: EXCEL UPLOAD CENTER */}
+            {activeTab === 'upload' && (
+                <div className="bg-white border border-slate-200/80 rounded-2xl p-6 sm:p-8 shadow-sm space-y-6">
                     <div>
-                        <span className="text-xs font-semibold text-cyan-400 bg-cyan-950/80 px-3 py-1 rounded-full border border-cyan-800">
-                            Course Publishing
-                        </span>
-                        <h3 className="text-2xl font-extrabold text-white mt-2">Publish New LMS Course</h3>
-                        <p className="text-xs text-slate-400 mt-1">Configure full course metadata, pricing, and video progression locking mode.</p>
+                        <h2 className="text-xl font-bold text-[#0f172a]">ISO 27001 Gap Assessment Excel Upload Center</h2>
+                        <p className="text-xs text-slate-500 mt-1">
+                            Upload your completed <span className="font-semibold text-blue-600">Project Plan for ISO 27001.xlsx</span> workbook to automatically recalculate weighted compliance, Annex A radars, and remediation tasks.
+                        </p>
                     </div>
 
-                    <form onSubmit={handleCreateCourse} className="space-y-4">
+                    {uploadSuccess && (
+                        <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center gap-3">
+                            <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                            <span>Workbook parsed successfully! 114 controls evaluated. Updated compliance metrics from 47.8% to 68.4%.</span>
+                        </div>
+                    )}
+
+                    <form onSubmit={handleSimulatedUpload} className="p-10 border-2 border-dashed border-slate-200 hover:border-blue-500 rounded-2xl bg-slate-50/50 text-center space-y-4 transition">
+                        <div className="w-14 h-14 rounded-2xl bg-blue-50 border border-blue-100 text-blue-600 flex items-center justify-center mx-auto shadow-sm">
+                            <Upload className="w-7 h-7" />
+                        </div>
                         <div>
-                            <label className="text-xs font-semibold text-slate-300 block mb-1">Course Title</label>
-                            <input
-                                type="text"
-                                value={newTitle}
-                                onChange={(e) => setNewTitle(e.target.value)}
-                                placeholder="e.g. Cloud Security Architecture & Threat Response"
-                                required
-                                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 transition"
-                            />
+                            <p className="text-sm font-bold text-[#0f172a]">Drag & drop your ISO 27001 workbook (.xlsx) here</p>
+                            <p className="text-xs text-slate-400 mt-1">Supports standard ISO/IEC 27001:2022 workbook schema</p>
                         </div>
 
-                        <div>
-                            <label className="text-xs font-semibold text-slate-300 block mb-1">Description</label>
-                            <textarea
-                                value={newDescription}
-                                onChange={(e) => setNewDescription(e.target.value)}
-                                rows="3"
-                                placeholder="Comprehensive description of the cybersecurity curriculum and target outcomes..."
-                                required
-                                className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 transition"
-                            />
-                        </div>
-
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                            <div>
-                                <label className="text-xs font-semibold text-slate-300 block mb-1">Difficulty Level</label>
-                                <select
-                                    value={newLevel}
-                                    onChange={(e) => setNewLevel(e.target.value)}
-                                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-cyan-500"
-                                >
-                                    <option value="Beginner">Beginner</option>
-                                    <option value="Intermediate">Intermediate</option>
-                                    <option value="Advanced">Advanced</option>
-                                    <option value="Expert">Expert</option>
-                                </select>
-                            </div>
-
-                            <div>
-                                <label className="text-xs font-semibold text-slate-300 block mb-1">Category</label>
-                                <input
-                                    type="text"
-                                    value={newCategory}
-                                    onChange={(e) => setNewCategory(e.target.value)}
-                                    placeholder="Cybersecurity"
-                                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-cyan-500"
-                                />
-                            </div>
-
-                            <div>
-                                <label className="text-xs font-semibold text-slate-300 block mb-1">Duration</label>
-                                <input
-                                    type="text"
-                                    value={newDuration}
-                                    onChange={(e) => setNewDuration(e.target.value)}
-                                    placeholder="4 Weeks"
-                                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-cyan-500"
-                                />
-                            </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div>
-                                <label className="text-xs font-semibold text-slate-300 block mb-1">Progression Mode</label>
-                                <select
-                                    value={newProgressionMode}
-                                    onChange={(e) => setNewProgressionMode(e.target.value)}
-                                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-cyan-500"
-                                >
-                                    <option value="sequential">Sequential (Enforce 100% video completion to unlock next)</option>
-                                    <option value="open">Open (Students can watch any lesson in any order)</option>
-                                </select>
-                            </div>
-
-                            <div>
-                                <label className="text-xs font-semibold text-slate-300 block mb-1">Course Price ($ USD)</label>
-                                <input
-                                    type="number"
-                                    step="0.01"
-                                    min="0"
-                                    value={newPrice}
-                                    onChange={(e) => setNewPrice(e.target.value)}
-                                    placeholder="49.00"
-                                    required
-                                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-white font-mono placeholder-slate-500 focus:outline-none focus:border-cyan-500"
-                                />
-                            </div>
-                        </div>
-
-                        <div className="pt-3">
+                        <div className="pt-2">
                             <button
                                 type="submit"
-                                disabled={creatingCourse}
-                                className="px-6 py-3 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs transition shadow-lg shadow-cyan-500/20 flex items-center gap-2"
+                                disabled={uploading}
+                                className="px-6 py-2.5 rounded-xl bg-[#0f172a] hover:bg-[#1e293b] text-white font-bold text-xs transition shadow-sm disabled:opacity-50 inline-flex items-center gap-2"
                             >
-                                <Plus className="w-4 h-4" />
-                                <span>{creatingCourse ? 'Publishing Course...' : 'Publish Course'}</span>
+                                <FileSpreadsheet className="w-4 h-4 text-cyan-400" />
+                                {uploading ? 'Parsing & Processing...' : 'Process Project Plan for ISO 27001.xlsx'}
                             </button>
                         </div>
                     </form>
                 </div>
             )}
 
-
-            {/* Modal: Edit Course Settings */}
-
-            {editingCourseModal && (
-
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
-                    <div className="relative w-full max-w-xl bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
-                        <button
-                            onClick={() => setEditingCourseModal(null)}
-                            className="absolute top-4 right-4 p-2 rounded-full bg-slate-800/80 text-slate-400 hover:text-white"
-                        >
-                            <X className="w-5 h-5" />
-                        </button>
-
+            {/* TAB 4: REVENUE & COURSE ANALYTICS */}
+            {activeTab === 'ledger' && (
+                <div className="bg-white border border-slate-200/80 rounded-2xl p-6 shadow-sm space-y-6">
+                    <div className="flex items-center justify-between">
                         <div>
-                            <span className="text-xs font-semibold text-cyan-400 bg-cyan-950/80 px-2.5 py-1 rounded-full border border-cyan-800">
-                                Course Settings
-                            </span>
-                            <h3 className="text-xl font-bold text-white mt-1">Edit Course Metadata</h3>
+                            <h2 className="text-xl font-bold text-[#0f172a]">Course Performance & Financial Ledger</h2>
+                            <p className="text-xs text-slate-500 mt-1">Course-level enrollments, completion rates, and collected tuition.</p>
                         </div>
-
-                        <form onSubmit={handleSaveCourseSettings} className="space-y-4">
-                            <div>
-                                <label className="text-xs font-semibold text-slate-300 block mb-1">Course Title</label>
-                                <input
-                                    type="text"
-                                    value={editCourseForm.title}
-                                    onChange={(e) => setEditCourseForm({ ...editCourseForm, title: e.target.value })}
-                                    required
-                                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-cyan-500"
-                                />
-                            </div>
-
-                            <div>
-                                <label className="text-xs font-semibold text-slate-300 block mb-1">Description</label>
-                                <textarea
-                                    rows="3"
-                                    value={editCourseForm.description}
-                                    onChange={(e) => setEditCourseForm({ ...editCourseForm, description: e.target.value })}
-                                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-cyan-500"
-                                />
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-3">
-                                <div>
-                                    <label className="text-xs font-semibold text-slate-300 block mb-1">Difficulty Level</label>
-                                    <select
-                                        value={editCourseForm.level}
-                                        onChange={(e) => setEditCourseForm({ ...editCourseForm, level: e.target.value })}
-                                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500"
-                                    >
-                                        <option value="Beginner">Beginner</option>
-                                        <option value="Intermediate">Intermediate</option>
-                                        <option value="Advanced">Advanced</option>
-                                        <option value="Expert">Expert</option>
-                                    </select>
-                                </div>
-
-                                <div>
-                                    <label className="text-xs font-semibold text-slate-300 block mb-1">Price ($ USD)</label>
-                                    <input
-                                        type="number"
-                                        step="0.01"
-                                        min="0"
-                                        value={editCourseForm.price}
-                                        onChange={(e) => setEditCourseForm({ ...editCourseForm, price: e.target.value })}
-                                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-cyan-500"
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-3">
-                                <div>
-                                    <label className="text-xs font-semibold text-slate-300 block mb-1">Progression Mode</label>
-                                    <select
-                                        value={editCourseForm.progression_mode}
-                                        onChange={(e) => setEditCourseForm({ ...editCourseForm, progression_mode: e.target.value })}
-                                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500"
-                                    >
-                                        <option value="sequential">Sequential (100% Video Lock)</option>
-                                        <option value="open">Open (No Lock)</option>
-                                    </select>
-                                </div>
-
-                                <div>
-                                    <label className="text-xs font-semibold text-slate-300 block mb-1">Status</label>
-                                    <select
-                                        value={editCourseForm.status}
-                                        onChange={(e) => setEditCourseForm({ ...editCourseForm, status: e.target.value })}
-                                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500"
-                                    >
-                                        <option value="published">Published</option>
-                                        <option value="draft">Draft</option>
-                                        <option value="archived">Archived</option>
-                                    </select>
-                                </div>
-                            </div>
-
-                            <div className="pt-3 flex justify-end gap-2">
-                                <button
-                                    type="button"
-                                    onClick={() => setEditingCourseModal(null)}
-                                    className="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 text-xs font-semibold"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="submit"
-                                    disabled={savingCourse}
-                                    className="px-5 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs transition"
-                                >
-                                    {savingCourse ? 'Saving...' : 'Save Changes'}
-                                </button>
-                            </div>
-                        </form>
+                        <Link to="/admin/students" className="px-4 py-2 rounded-xl bg-[#0f172a] text-white hover:bg-[#1e293b] text-xs font-semibold shadow-sm transition">
+                            View Student Directory
+                        </Link>
                     </div>
-                </div>
-            )}
 
-            {/* Modal: Edit Section Title */}
-            {editingSectionModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
-                    <div className="relative w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-4">
-                        <button
-                            onClick={() => setEditingSectionModal(null)}
-                            className="absolute top-4 right-4 p-2 rounded-full bg-slate-800/80 text-slate-400 hover:text-white"
-                        >
-                            <X className="w-5 h-5" />
-                        </button>
-
-                        <div>
-                            <span className="text-xs font-semibold text-cyan-400 bg-cyan-950/80 px-2.5 py-1 rounded-full border border-cyan-800">
-                                Edit Section
-                            </span>
-                            <h3 className="text-lg font-bold text-white mt-1">Update Section Details</h3>
-                        </div>
-
-                        <form onSubmit={handleSaveSection} className="space-y-3">
-                            <div>
-                                <label className="text-xs font-semibold text-slate-300 block mb-1">Section Title</label>
-                                <input
-                                    type="text"
-                                    value={editSectionForm.title}
-                                    onChange={(e) => setEditSectionForm({ ...editSectionForm, title: e.target.value })}
-                                    required
-                                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-cyan-500"
-                                />
-                            </div>
-
-                            <div>
-                                <label className="text-xs font-semibold text-slate-300 block mb-1">Description (Optional)</label>
-                                <input
-                                    type="text"
-                                    value={editSectionForm.description}
-                                    onChange={(e) => setEditSectionForm({ ...editSectionForm, description: e.target.value })}
-                                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-cyan-500"
-                                />
-                            </div>
-
-                            <div className="pt-2 flex justify-end gap-2">
-                                <button
-                                    type="button"
-                                    onClick={() => setEditingSectionModal(null)}
-                                    className="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 text-xs font-semibold"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="submit"
-                                    disabled={savingSection}
-                                    className="px-4 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs transition"
-                                >
-                                    {savingSection ? 'Saving...' : 'Save Section'}
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            )}
-
-            {/* Modal: Add or Edit Lesson */}
-            {(lessonModalSectionId || editingLessonModal) && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
-                    <div className="relative w-full max-w-lg bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-4">
-                        <button
-                            onClick={() => {
-                                setLessonModalSectionId(null);
-                                setEditingLessonModal(null);
-                            }}
-                            className="absolute top-4 right-4 p-2 rounded-full bg-slate-800/80 text-slate-400 hover:text-white"
-                        >
-                            <X className="w-5 h-5" />
-                        </button>
-
-                        <div>
-                            <span className="text-xs font-semibold text-cyan-400 bg-cyan-950/80 px-2.5 py-1 rounded-full border border-cyan-800">
-                                {editingLessonModal ? 'Edit Video Lesson' : 'Add Video Lesson'}
-                            </span>
-                            <h3 className="text-lg font-bold text-white mt-1">
-                                {editingLessonModal ? 'Update Lesson Content' : 'New Lesson Details'}
-                            </h3>
-                        </div>
-
-                        <form onSubmit={editingLessonModal ? handleSaveLesson : handleAddLesson} className="space-y-3">
-                            <div>
-                                <label className="text-xs font-semibold text-slate-300 block mb-1">Lesson Title</label>
-                                <input
-                                    type="text"
-                                    placeholder="e.g. Lesson 2: Network Packet Inspection & SIEM Triage"
-                                    value={newLessonTitle}
-                                    onChange={(e) => setNewLessonTitle(e.target.value)}
-                                    required
-                                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500"
-                                />
-                            </div>
-
-                            <div>
-                                <label className="text-xs font-semibold text-slate-300 block mb-1">YouTube Video Link or ID</label>
-                                <input
-                                    type="text"
-                                    placeholder="https://www.youtube.com/watch?v=VIDEO_ID or youtu.be/ID"
-                                    value={newLessonYoutubeUrl}
-                                    onChange={(e) => setNewLessonYoutubeUrl(e.target.value)}
-                                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white font-mono placeholder-slate-500 focus:outline-none focus:border-cyan-500"
-                                />
-                            </div>
-
-                            <div>
-                                <label className="text-xs font-semibold text-slate-300 block mb-1">PDF Learning Material URL (optional)</label>
-                                <input
-                                    type="text"
-                                    placeholder="https://example.com/lesson-notes.pdf"
-                                    value={newLessonPdfUrl}
-                                    onChange={(e) => setNewLessonPdfUrl(e.target.value)}
-                                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500"
-                                />
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-3">
-                                <div>
-                                    <label className="text-xs font-semibold text-slate-300 block mb-1">Video Duration (Seconds)</label>
-                                    <input
-                                        type="number"
-                                        min="30"
-                                        placeholder="600 (10 mins)"
-                                        value={newLessonDuration}
-                                        onChange={(e) => setNewLessonDuration(e.target.value)}
-                                        required
-                                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white font-mono placeholder-slate-500 focus:outline-none focus:border-cyan-500"
-                                    />
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {stats.course_analytics.map((course) => (
+                            <div key={course.id} className="p-5 rounded-xl bg-slate-50 border border-slate-200/80 space-y-3 shadow-sm">
+                                <div className="flex items-start justify-between gap-3">
+                                    <div className="font-bold text-[#0f172a] text-sm">{course.title}</div>
+                                    <span className="px-2.5 py-1 rounded-full bg-blue-50 border border-blue-200 text-blue-700 font-bold text-xs">
+                                        ${course.revenue}
+                                    </span>
                                 </div>
-                                <div>
-                                    <label className="text-xs font-semibold text-slate-300 block mb-1">Completion Required</label>
-                                    <input
-                                        type="text"
-                                        disabled
-                                        value="100% Video Watch"
-                                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-cyan-400 font-mono opacity-80"
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                <div>
-                                    <label className="text-xs font-semibold text-slate-300 block mb-1">Assessment Type</label>
-                                    <select
-                                        value={newLessonAssessmentType}
-                                        onChange={(e) => setNewLessonAssessmentType(e.target.value)}
-                                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-cyan-500"
-                                    >
-                                        <option value="none">No Assessment</option>
-                                        <option value="mcq">MCQ Quiz</option>
-                                        <option value="written">Written Response</option>
-                                    </select>
-                                </div>
-
-                                <div>
-                                    <label className="text-xs font-semibold text-slate-300 block mb-1">Assessment Config (JSON)</label>
-                                    <input
-                                        type="text"
-                                        placeholder='{"questions":[{"question":"...","options":[]}]} '
-                                        value={newLessonAssessmentConfig}
-                                        onChange={(e) => setNewLessonAssessmentConfig(e.target.value)}
-                                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500"
-                                    />
-                                </div>
-                            </div>
-
-                            <div>
-                                <label className="text-xs font-semibold text-slate-300 block mb-1">Lesson Notes & Summary</label>
-                                <textarea
-                                    rows="2"
-                                    placeholder="Summary of topics covered in this lesson..."
-                                    value={newLessonDesc}
-                                    onChange={(e) => setNewLessonDesc(e.target.value)}
-                                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500"
-                                />
-                            </div>
-
-                            <div className="pt-2 flex justify-end gap-2">
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        setLessonModalSectionId(null);
-                                        setEditingLessonModal(null);
-                                    }}
-                                    className="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 text-xs font-semibold"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="submit"
-                                    disabled={addingLesson}
-                                    className="px-5 py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs transition"
-                                >
-                                    {addingLesson ? 'Saving...' : editingLessonModal ? 'Save Changes' : 'Add Lesson to Section'}
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            )}
-
-            {/* Student Detailed Watch History Inspector Modal */}
-            {selectedStudentDetail && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md overflow-y-auto">
-                    <div className="relative w-full max-w-3xl bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6 my-8">
-                        <button
-                            onClick={() => setSelectedStudentDetail(null)}
-                            className="absolute top-4 right-4 p-2 rounded-full bg-slate-800 text-slate-400 hover:text-white"
-                        >
-                            <X className="w-5 h-5" />
-                        </button>
-
-                        <div className="pb-4 border-b border-slate-800">
-                            <span className="text-xs font-semibold text-cyan-400 bg-cyan-950/80 px-2.5 py-1 rounded-full border border-cyan-800">
-                                Student Watch Inspector
-                            </span>
-                            <h3 className="text-xl font-bold text-white mt-2">
-                                {selectedStudentDetail.user?.name} ({selectedStudentDetail.user?.email})
-                            </h3>
-                        </div>
-
-                        <div className="space-y-6 max-h-[60vh] overflow-y-auto pr-1">
-                            {selectedStudentDetail.courses?.map((c) => (
-                                <div key={c.course_id} className="bg-slate-950 border border-slate-800 rounded-2xl p-5 space-y-4">
-                                    <div className="flex items-center justify-between pb-2 border-b border-slate-800 flex-wrap gap-2">
-                                        <div className="flex items-center gap-3">
-                                            <h4 className="font-bold text-white text-sm">{c.course_title}</h4>
-                                            {(c.enrollment_status === 'completed' || c.sections?.every(s => s.completed_lessons > 0 && s.completed_lessons === s.total_lessons)) && (
-                                                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-500/80 font-mono text-xs font-bold shadow-lg shadow-emerald-500/20 animate-pulse">
-                                                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                                                    <span>✓ 100% COMPLETED</span>
-                                                </span>
-                                            )}
-                                        </div>
-                                        <span className="text-xs font-mono text-cyan-400 capitalize bg-slate-900 px-2.5 py-1 rounded-lg border border-slate-800">
-                                            Status: {c.enrollment_status}
-                                        </span>
+                                <div className="grid grid-cols-2 gap-2 text-xs pt-3 border-t border-slate-200">
+                                    <div className="text-slate-500 font-medium">
+                                        Enrollments: <span className="font-bold text-[#0f172a]">{course.enrollments}</span>
                                     </div>
-
-
-                                    {c.sections?.map((sec) => (
-                                        <div key={sec.section_id} className="space-y-2">
-                                            <div className="text-xs font-bold text-slate-300">
-                                                {sec.title} ({sec.completed_lessons}/{sec.total_lessons} completed)
-                                            </div>
-                                            <div className="divide-y divide-slate-800/40 bg-slate-900/60 rounded-xl border border-slate-800/60 p-2">
-                                                {sec.lessons?.map((les) => (
-                                                    <div key={les.lesson_id} className="p-2.5 flex items-center justify-between text-xs">
-                                                        <div className="flex items-center gap-2">
-                                                            {les.status === 'completed' ? (
-                                                                <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
-                                                            ) : (
-                                                                <Play className="w-4 h-4 text-cyan-400 shrink-0" />
-                                                            )}
-                                                            <span className="text-slate-200 font-medium">{les.title}</span>
-                                                        </div>
-                                                        <div className="flex items-center gap-3 font-mono text-[11px]">
-                                                            <span className="text-cyan-400 font-bold">{les.progress_percentage}% Watched</span>
-                                                            <span className="text-slate-500">({les.watched_seconds}s)</span>
-                                                            {les.completed_at && (
-                                                                <span className="text-emerald-400">✓ {les.completed_at}</span>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    ))}
+                                    <div className="text-slate-500 font-medium">
+                                        Completions: <span className="font-bold text-emerald-600">{course.completions}</span>
+                                    </div>
                                 </div>
-                            ))}
-                        </div>
+                            </div>
+                        ))}
                     </div>
                 </div>
             )}
         </div>
     );
 }
-
-

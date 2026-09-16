@@ -67,22 +67,23 @@ export default function StudentTasksPage() {
 
     if (loading) {
         return (
-            <div className="min-h-[70vh] flex items-center justify-center text-emerald-400 font-mono text-sm">
-                <RefreshCw className="w-5 h-5 animate-spin mr-2" /> Loading Assigned Excel Project Spreadsheet...
+            <div className="min-h-[70vh] flex flex-col items-center justify-center gap-3 bg-[#f4f7fb] text-slate-500">
+                <div className="w-10 h-10 rounded-full border-3 border-slate-200 border-t-emerald-600 animate-spin" />
+                <p className="text-xs font-semibold">Loading Assigned Project Spreadsheet...</p>
             </div>
         );
     }
 
     if (plans.length === 0) {
         return (
-            <div className="max-w-xl mx-auto my-20 p-8 bg-slate-900 border border-slate-800 rounded-2xl text-center space-y-4">
-                <Table className="w-12 h-12 text-slate-600 mx-auto" />
-                <h2 className="text-xl font-bold text-white">No Project Plans Assigned</h2>
-                <p className="text-sm text-slate-400">You currently have no compliance or operational project plans assigned by your organization lead.</p>
+            <div className="max-w-xl mx-auto my-20 p-8 bg-white border border-slate-200/80 rounded-2xl text-center space-y-4 shadow-sm">
+                <Table className="w-12 h-12 text-slate-400 mx-auto" />
+                <h2 className="text-xl font-bold text-[#0f172a]">No Project Plans Assigned</h2>
+                <p className="text-xs text-slate-500">You currently have no compliance or operational project plans assigned by your organization lead.</p>
                 <div className="pt-2">
                     <Link
                         to="/courses"
-                        className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs"
+                        className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#0f172a] hover:bg-[#1e293b] text-white font-bold text-xs shadow-sm transition"
                     >
                         <ArrowLeft className="w-4 h-4" />
                         <span>Go to My Courses</span>
@@ -99,76 +100,75 @@ export default function StudentTasksPage() {
     const totalTasks = planData?.total_tasks || 0;
 
     return (
-        <div className="min-h-screen bg-slate-950 text-slate-100 p-4 sm:p-6 lg:p-8 space-y-6 max-w-[1600px] mx-auto">
-            {/* Top Toolbar Banner */}
-            <div className="bg-slate-900 border border-emerald-900/60 rounded-2xl p-5 shadow-2xl space-y-4 relative overflow-hidden">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 z-10 relative">
+        <div className="min-h-screen bg-[#f4f7fb] text-slate-800 p-4 sm:p-6 lg:p-8 space-y-6 max-w-[1600px] mx-auto">
+            {/* Top Toolbar Banner (White Card) */}
+            <div className="bg-white border border-slate-200/80 rounded-2xl p-6 shadow-sm space-y-4">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div className="space-y-1">
                         <div className="flex items-center gap-2">
-                            <span className="px-2.5 py-0.5 rounded-full bg-emerald-950 text-emerald-400 border border-emerald-800 text-[10px] font-mono font-bold uppercase tracking-wider flex items-center gap-1">
+                            <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[11px] font-semibold flex items-center gap-1">
                                 <Table className="w-3 h-3" /> Excel Project Spreadsheet Mode
                             </span>
                             {currentPlan?.standard && (
-                                <span className="px-2.5 py-0.5 rounded-full bg-slate-950 text-slate-400 border border-slate-800 text-[10px] font-mono">
+                                <span className="px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200 text-[11px] font-semibold">
                                     {currentPlan.standard}
                                 </span>
                             )}
                         </div>
-                        <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight flex items-center gap-2">
-                            <ShieldCheck className="w-7 h-7 text-emerald-400" />
+                        <h1 className="text-2xl sm:text-3xl font-extrabold text-[#0f172a] tracking-tight flex items-center gap-2">
+                            <ShieldCheck className="w-7 h-7 text-emerald-600" />
                             {currentPlan?.title || 'ISO 27001 Project Plan'}
                         </h1>
-                        <p className="text-xs sm:text-sm text-slate-400 max-w-3xl">
+                        <p className="text-xs sm:text-sm text-slate-500 max-w-3xl">
                             Pro tip ➜ Update your task progress percentage directly in the interactive spreadsheet grid below.
                         </p>
                     </div>
 
-                    {/* Overall Progress Summary Widget */}
-                    <div className="bg-slate-950 p-3.5 rounded-xl border border-slate-800 shrink-0 space-y-2 min-w-[240px]">
-                        <div className="flex items-center justify-between text-xs font-mono">
-                            <span className="text-slate-400">Project Progression</span>
-                            <span className="text-emerald-400 font-bold text-sm">{overallProgress}%</span>
+                    {/* Overall Progress Summary Widget (Clean White Card) */}
+                    <div className="bg-[#f8fafc] p-4 rounded-xl border border-slate-200/80 shrink-0 space-y-2 min-w-[240px]">
+                        <div className="flex items-center justify-between text-xs">
+                            <span className="text-slate-500 font-semibold">Project Progression</span>
+                            <span className="text-emerald-700 font-extrabold text-sm">{overallProgress}%</span>
                         </div>
-                        <div className="w-full bg-slate-900 rounded-full h-2.5 overflow-hidden border border-slate-800">
+                        <div className="w-full bg-slate-200 rounded-full h-2.5 overflow-hidden">
                             <div
-                                className={`h-full transition-all duration-500 ${
-                                    overallProgress >= 100 ? 'bg-emerald-400' : 'bg-gradient-to-r from-emerald-500 to-cyan-400'
-                                }`}
+                                className="h-full bg-emerald-600 transition-all duration-500 rounded-full"
                                 style={{ width: `${overallProgress}%` }}
                             />
                         </div>
-                        <div className="text-[10px] text-slate-500 font-mono text-right">
+                        <div className="text-[11px] text-slate-400 text-right">
                             {completedTasks} of {totalTasks} tasks completed
                         </div>
                     </div>
                 </div>
 
-                {/* Metadata Row */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3 text-xs font-mono pt-2 border-t border-slate-800/80">
-                    <div className="bg-slate-950 p-2.5 rounded-xl border border-slate-800">
-                        <span className="text-slate-500 block text-[10px] uppercase font-bold">STANDARD</span>
-                        <span className="text-emerald-400 font-bold">{currentPlan?.standard || 'ISO 27001'}</span>
+                {/* Metadata Row (Clean White Small Cards) */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3 text-xs pt-3 border-t border-slate-100">
+                    <div className="bg-[#f8fafc] p-3 rounded-xl border border-slate-200/80">
+                        <span className="text-slate-400 block text-[10px] uppercase font-bold tracking-wider">STANDARD</span>
+                        <span className="text-emerald-700 font-bold text-sm">{currentPlan?.standard || 'ISO 27001'}</span>
                     </div>
-                    <div className="bg-slate-950 p-2.5 rounded-xl border border-slate-800">
-                        <span className="text-slate-500 block text-[10px] uppercase font-bold">COMPANY NAME</span>
-                        <span className="text-white font-bold truncate block">{currentPlan?.company_name || 'CyberLoy'}</span>
+                    <div className="bg-[#f8fafc] p-3 rounded-xl border border-slate-200/80">
+                        <span className="text-slate-400 block text-[10px] uppercase font-bold tracking-wider">COMPANY NAME</span>
+                        <span className="text-[#0f172a] font-bold text-sm truncate block">{currentPlan?.company_name || 'CyberLoy'}</span>
                     </div>
-                    <div className="bg-slate-950 p-2.5 rounded-xl border border-slate-800">
-                        <span className="text-slate-500 block text-[10px] uppercase font-bold">PROJECT OWNER</span>
-                        <span className="text-white font-bold truncate block">{currentPlan?.project_owner || 'CISO'}</span>
+                    <div className="bg-[#f8fafc] p-3 rounded-xl border border-slate-200/80">
+                        <span className="text-slate-400 block text-[10px] uppercase font-bold tracking-wider">PROJECT OWNER</span>
+                        <span className="text-[#0f172a] font-bold text-sm truncate block">{currentPlan?.project_owner || 'CISO'}</span>
                     </div>
-                    <div className="bg-slate-950 p-2.5 rounded-xl border border-slate-800">
-                        <span className="text-slate-500 block text-[10px] uppercase font-bold">DURATION</span>
-                        <span className="text-white font-bold">{currentPlan?.weeks_duration || 12} Weeks</span>
+                    <div className="bg-[#f8fafc] p-3 rounded-xl border border-slate-200/80">
+                        <span className="text-slate-400 block text-[10px] uppercase font-bold tracking-wider">DURATION</span>
+                        <span className="text-[#0f172a] font-bold text-sm">{currentPlan?.weeks_duration || 12} Weeks</span>
                     </div>
-                    <div className="bg-slate-950 p-2.5 rounded-xl border border-slate-800">
-                        <span className="text-slate-500 block text-[10px] uppercase font-bold">MY COMPLETED TASKS</span>
-                        <span className="text-cyan-400 font-bold">{completedTasks} / {totalTasks}</span>
+                    <div className="bg-[#f8fafc] p-3 rounded-xl border border-slate-200/80">
+                        <span className="text-slate-400 block text-[10px] uppercase font-bold tracking-wider">MY COMPLETED TASKS</span>
+                        <span className="text-blue-600 font-bold text-sm">{completedTasks} / {totalTasks}</span>
                     </div>
-                    <div className="bg-slate-950 p-2.5 rounded-xl border border-slate-800">
-                        <span className="text-slate-500 block text-[10px] uppercase font-bold">MY OVERALL STATUS</span>
-                        <span className="text-emerald-400 font-bold">
-                            {overallProgress >= 100 ? '✓ Certified 100%' : 'In Implementation'}
+                    <div className="bg-[#f8fafc] p-3 rounded-xl border border-slate-200/80">
+                        <span className="text-slate-400 block text-[10px] uppercase font-bold tracking-wider">MY OVERALL STATUS</span>
+                        <span className="text-emerald-700 font-bold text-sm flex items-center gap-1">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                            {overallProgress >= 100 ? 'Certified 100%' : 'In Implementation'}
                         </span>
                     </div>
                 </div>
@@ -176,20 +176,22 @@ export default function StudentTasksPage() {
 
             {/* Plan Selector Tabs */}
             {plans.length > 1 && (
-                <div className="flex items-center gap-2 overflow-x-auto pb-2 border-b border-slate-800">
+                <div className="flex items-center gap-2 overflow-x-auto pb-1">
                     {plans.map((p) => (
                         <button
                             key={p.id}
                             onClick={() => handleSelectPlan(p.id)}
-                            className={`px-4 py-2 rounded-xl text-xs font-mono font-bold transition flex items-center gap-2 whitespace-nowrap ${
+                            className={`px-4 py-2 rounded-xl text-xs font-semibold transition flex items-center gap-2 whitespace-nowrap shadow-sm ${
                                 selectedPlanId === p.id
-                                    ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/40'
-                                    : 'bg-slate-900 text-slate-400 hover:bg-slate-800 border border-slate-800'
+                                    ? 'bg-[#0f172a] text-white'
+                                    : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200/80'
                             }`}
                         >
-                            <Table className="w-3.5 h-3.5" />
+                            <Table className="w-3.5 h-3.5 text-blue-500" />
                             <span>{p.title}</span>
-                            <span className="px-2 py-0.5 rounded-full bg-slate-950 text-[10px] text-slate-400">
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                selectedPlanId === p.id ? 'bg-slate-800 text-cyan-400' : 'bg-slate-100 text-slate-600'
+                            }`}>
                                 {p.user_overall_progress || 0}%
                             </span>
                         </button>
@@ -197,43 +199,43 @@ export default function StudentTasksPage() {
                 </div>
             )}
 
-            {/* Authentic Excel Spreadsheet Data Table */}
-            <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl">
+            {/* Authentic Excel Spreadsheet Data Table (White Card) */}
+            <div className="bg-white border border-slate-200/80 rounded-2xl overflow-hidden shadow-sm">
                 <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse font-sans text-xs">
+                    <table className="w-full text-left border-collapse text-xs text-slate-700">
                         {/* Excel Table Column Headers */}
                         <thead>
-                            <tr className="bg-slate-950 text-slate-400 font-mono text-[11px] uppercase tracking-wider border-b border-slate-800">
-                                <th className="py-3.5 px-4 w-24 border-r border-slate-800">Prefix</th>
-                                <th className="py-3.5 px-4 w-64 border-r border-slate-800">Tasks</th>
-                                <th className="py-3.5 px-4 border-r border-slate-800">Details & Guidance</th>
-                                <th className="py-3.5 px-4 w-56 border-r border-slate-800 text-center">
+                            <tr className="bg-[#f8fafc] text-slate-500 text-[10px] uppercase font-bold tracking-wider border-b border-slate-200">
+                                <th className="py-3.5 px-4 w-24 border-r border-slate-200">Prefix</th>
+                                <th className="py-3.5 px-4 w-64 border-r border-slate-200">Tasks</th>
+                                <th className="py-3.5 px-4 border-r border-slate-200">Details & Guidance</th>
+                                <th className="py-3.5 px-4 w-56 border-r border-slate-200 text-center">
                                     Progress (per task)
                                 </th>
-                                <th className="py-3.5 px-4 w-28 border-r border-slate-800 text-center">
+                                <th className="py-3.5 px-4 w-28 border-r border-slate-200 text-center">
                                     Progress (phase)
                                 </th>
                                 <th className="py-3.5 px-4 w-64">Comments & Notes</th>
                             </tr>
                         </thead>
 
-                        <tbody className="divide-y divide-slate-800/80 font-sans">
+                        <tbody className="divide-y divide-slate-100 font-sans">
                             {phases.map((phase, phaseIdx) => (
                                 <React.Fragment key={phase.phase_name}>
-                                    {/* Phase Header Row (Excel Header Banner Style) */}
-                                    <tr className="bg-emerald-950/50 text-emerald-300 font-mono font-bold text-xs border-y border-emerald-900/80">
-                                        <td colSpan="4" className="py-3 px-4">
+                                    {/* Phase Header Row */}
+                                    <tr className="bg-emerald-50/70 text-emerald-900 font-bold text-xs border-y border-emerald-100">
+                                        <td colSpan="4" className="py-2.5 px-4">
                                             <div className="flex items-center gap-2">
-                                                <Layers className="w-4 h-4 text-emerald-400" />
+                                                <Layers className="w-4 h-4 text-emerald-600" />
                                                 <span>PHASE {phaseIdx + 1}: {phase.phase_name.toUpperCase()}</span>
                                             </div>
                                         </td>
-                                        <td className="py-3 px-4 text-center border-r border-slate-800/80">
-                                            <span className="text-[11px] bg-emerald-950 text-emerald-400 border border-emerald-800 px-2.5 py-1 rounded font-bold">
+                                        <td className="py-2.5 px-4 text-center border-r border-slate-100">
+                                            <span className="text-[10px] bg-white text-emerald-800 border border-emerald-200 px-2.5 py-0.5 rounded-full font-bold shadow-xs">
                                                 {phase.phase_progress_percentage}% Phase
                                             </span>
                                         </td>
-                                        <td className="py-3 px-4 text-slate-400 text-[10px]">
+                                        <td className="py-2.5 px-4 text-slate-500 text-[11px]">
                                             {phase.completed_tasks} of {phase.total_tasks} phase tasks completed
                                         </td>
                                     </tr>
@@ -244,33 +246,33 @@ export default function StudentTasksPage() {
                                         return (
                                             <tr
                                                 key={task.id}
-                                                className={`transition group border-b border-slate-800/60 ${
-                                                    isDone ? 'bg-emerald-950/15' : 'hover:bg-slate-800/40'
+                                                className={`transition group border-b border-slate-100 ${
+                                                    isDone ? 'bg-emerald-50/30' : 'hover:bg-slate-50/80'
                                                 }`}
                                             >
                                                 {/* Prefix */}
-                                                <td className="py-3.5 px-4 font-mono font-bold text-emerald-400 border-r border-slate-800/80">
+                                                <td className="py-3.5 px-4 font-bold text-emerald-700 border-r border-slate-100">
                                                     {task.prefix || `${phaseIdx + 1}.${task.id}`}
                                                 </td>
 
                                                 {/* Tasks */}
-                                                <td className="py-3.5 px-4 font-semibold text-slate-100 border-r border-slate-800/80">
+                                                <td className="py-3.5 px-4 font-semibold text-[#0f172a] border-r border-slate-100">
                                                     <div className="flex items-center justify-between gap-2">
                                                         <span>{task.title}</span>
                                                         {isDone && (
-                                                            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                                                            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
                                                         )}
                                                     </div>
                                                 </td>
 
                                                 {/* Details */}
-                                                <td className="py-3.5 px-4 text-slate-300 text-[11px] leading-relaxed border-r border-slate-800/80">
-                                                    {task.details || <span className="text-slate-600 italic">-</span>}
+                                                <td className="py-3.5 px-4 text-slate-600 text-[11px] leading-relaxed border-r border-slate-100">
+                                                    {task.details || <span className="text-slate-400 italic">-</span>}
                                                 </td>
 
                                                 {/* Progress (per task) Manual Entry Text Box Cell */}
-                                                <td className="py-3.5 px-4 border-r border-slate-800/80 bg-slate-950/40">
-                                                    <div className="flex items-center justify-between gap-2 font-mono">
+                                                <td className="py-3.5 px-4 border-r border-slate-100 bg-[#f8fafc]/50">
+                                                    <div className="flex items-center justify-between gap-2">
                                                         <div className="flex items-center gap-1">
                                                             <input
                                                                 type="number"
@@ -288,7 +290,7 @@ export default function StudentTasksPage() {
                                                                         handleUpdateTaskProgress(task.id, val, task.user_comments);
                                                                     }
                                                                 }}
-                                                                className="w-16 bg-slate-900 border border-slate-700 rounded-lg py-1 px-2 text-center text-xs font-bold text-emerald-400 focus:border-emerald-500 outline-none"
+                                                                className="w-16 bg-white border border-slate-200 rounded-lg py-1 px-2 text-center text-xs font-bold text-emerald-700 focus:border-emerald-500 outline-none shadow-sm"
                                                             />
                                                             <span className="text-slate-400 text-xs font-bold">%</span>
                                                         </div>
@@ -296,10 +298,10 @@ export default function StudentTasksPage() {
                                                         <button
                                                             onClick={() => handleUpdateTaskProgress(task.id, isDone ? 0 : 100, task.user_comments)}
                                                             disabled={savingTaskId === task.id}
-                                                            className={`px-2 py-1 rounded-lg text-[10px] font-mono font-semibold transition ${
+                                                            className={`px-2 py-1 rounded-lg text-[10px] font-semibold transition shadow-xs ${
                                                                 isDone
-                                                                    ? 'bg-emerald-950 text-emerald-300 border border-emerald-800'
-                                                                    : 'bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700'
+                                                                    ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                                                                    : 'bg-white text-slate-700 hover:bg-slate-50 border border-slate-200'
                                                             }`}
                                                         >
                                                             {isDone ? '✓ 100%' : 'Set 100%'}
@@ -307,9 +309,8 @@ export default function StudentTasksPage() {
                                                     </div>
                                                 </td>
 
-
                                                 {/* Progress (phase) */}
-                                                <td className="py-3.5 px-4 border-r border-slate-800/80 text-center font-mono text-[11px] text-slate-400">
+                                                <td className="py-3.5 px-4 border-r border-slate-100 text-center text-[11px] text-slate-500 font-semibold">
                                                     {phase.phase_progress_percentage}%
                                                 </td>
 
@@ -320,7 +321,7 @@ export default function StudentTasksPage() {
                                                         defaultValue={task.user_comments || task.comments || ''}
                                                         onBlur={(e) => handleUpdateTaskProgress(task.id, task.user_progress_percentage, e.target.value)}
                                                         placeholder="Click to add note/comment..."
-                                                        className="w-full bg-slate-950 border border-slate-800 rounded p-1.5 text-xs text-amber-300 font-mono focus:border-emerald-500 outline-none"
+                                                        className="w-full bg-white border border-slate-200 rounded-lg p-1.5 text-xs text-amber-800 placeholder-slate-400 focus:border-emerald-500 outline-none shadow-sm"
                                                     />
                                                 </td>
                                             </tr>

@@ -1,16 +1,31 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import {
-    LayoutGrid, GraduationCap, Banknote, Briefcase, Wrench,
-    ClipboardList, LogOut, ChevronRight, ChevronDown, BookOpen,
-    Users, CheckSquare, CreditCard, Plus, Award, ShieldCheck, Sparkles, ShieldAlert
+    BarChart3,
+    BookOpen,
+    CheckSquare,
+    ChevronRight,
+    FileText,
+    GraduationCap,
+    LayoutGrid,
+    LifeBuoy,
+    LogOut,
+    Shield,
+    ShieldAlert,
+    ShieldCheck,
+    Sparkles,
+    Upload,
+    Users,
+    Award,
+    FileCheck,
+    Layers,
+    ListTodo
 } from 'lucide-react';
 
 import { useAuth } from '../context/AuthContext';
 import EmergencySupportModal from './EmergencySupportModal';
-import logoUrl from '@/assets/cyberloy-logo.png';
 
-export default function PortalSidebar({ activeTab, setActiveTab, paymentsCount = 0 }) {
+export default function PortalSidebar({ activeTab, setActiveTab }) {
     const { user, logout, isAdmin } = useAuth();
     const navigate = useNavigate();
     const location = useLocation();
@@ -18,10 +33,118 @@ export default function PortalSidebar({ activeTab, setActiveTab, paymentsCount =
 
     const isAdminUser = isAdmin || user?.role === 'admin';
 
-    // Collapsible submenu states
-    const [academicOpen, setAcademicOpen] = useState(true);
-    const [financialOpen, setFinancialOpen] = useState(false);
-    const [studentServicesOpen, setStudentServicesOpen] = useState(true);
+    const adminNavSections = [
+        {
+            title: 'EXECUTIVE & COMPLIANCE',
+            items: [
+                {
+                    id: 'dashboard',
+                    label: 'Executive Dashboard',
+                    icon: LayoutGrid,
+                    path: '/admin',
+                    badge: 'Live',
+                    description: 'ISO 27001 overview & metrics',
+                },
+                {
+                    id: 'task-builder',
+                    label: 'ISO 27001 Task Builder',
+                    icon: ListTodo,
+                    path: '/admin/task-builder',
+                    badge: 'GRC',
+                    description: 'Project plans, tasks & assignments',
+                },
+            ],
+        },
+        {
+            title: 'LMS & ACADEMY',
+            items: [
+                {
+                    id: 'builder',
+                    label: 'Course & Curriculum Builder',
+                    icon: GraduationCap,
+                    path: '/admin/builder',
+                    description: 'Create & edit courses, modules, lessons',
+                },
+                {
+                    id: 'students',
+                    label: 'Student Directory',
+                    icon: Users,
+                    path: '/admin/students',
+                    description: 'Student enrollments & progress tracking',
+                },
+                {
+                    id: 'courses',
+                    label: 'Browse Course Catalog',
+                    icon: BookOpen,
+                    path: '/courses',
+                    description: 'Explore all published courses',
+                },
+            ],
+        },
+        {
+            title: 'CERTIFICATES & TOOLS',
+            items: [
+                {
+                    id: 'my-certificates',
+                    label: 'Certificates Center',
+                    icon: Award,
+                    path: '/certificates',
+                    description: 'Issued certificates & downloads',
+                },
+                {
+                    id: 'verify-cert',
+                    label: 'Verify Certificate',
+                    icon: FileCheck,
+                    path: '/certificate/verify',
+                    description: 'Public authenticity verification',
+                },
+            ],
+        },
+    ];
+
+    const studentNavSections = [
+        {
+            title: 'MY WORKSPACE',
+            items: [
+                {
+                    id: 'my-tasks',
+                    label: 'My ISO 27001 Tasks',
+                    icon: CheckSquare,
+                    path: '/my-tasks',
+                    badge: 'Active',
+                    description: 'Assigned implementation tasks',
+                },
+                {
+                    id: 'courses',
+                    label: 'Course Catalog & Classroom',
+                    icon: BookOpen,
+                    path: '/courses',
+                    description: 'Video lessons, quizzes & study labs',
+                },
+                {
+                    id: 'certificates',
+                    label: 'My Certificates',
+                    icon: Award,
+                    path: '/certificates',
+                    description: 'Earned course & compliance awards',
+                },
+            ],
+        },
+        {
+            title: 'TOOLS & VERIFICATION',
+            items: [
+                {
+                    id: 'verify',
+                    label: 'Verify Certificate',
+                    icon: FileCheck,
+                    path: '/certificate/verify',
+                    description: 'Public blockchain/hash verification',
+                },
+            ],
+        },
+    ];
+
+    const navSections = isAdminUser ? adminNavSections : studentNavSections;
 
     const handleLogout = () => {
         logout();
@@ -29,277 +152,131 @@ export default function PortalSidebar({ activeTab, setActiveTab, paymentsCount =
     };
 
     return (
-        <aside className="w-72 shrink-0 bg-[#080E21] border-r border-[#162447] min-h-screen flex flex-col font-sans text-slate-200 select-none shadow-2xl">
-            {/* Top Emblem Header (Exact Daffodil / CyberLoy Style) */}
-            <div className="p-4 border-b border-[#162447] bg-[#0A1128]">
-                <Link to="/" className="flex items-center gap-3 group w-full">
-                    <img
-                        src={logoUrl}
-                        alt="CyberLoy"
-                        className="h-full w-full object-contain transition-transform group-hover:scale-105"
-                    />
+        <aside className="w-72 shrink-0 bg-[#07172d] border-r border-slate-800 min-h-screen flex flex-col text-slate-100 select-none shadow-2xl z-30">
+            {/* Header Brand */}
+            <div className="px-5 py-5 border-b border-slate-800 bg-[#081b35]">
+                <Link to={isAdminUser ? '/admin' : '/courses'} className="flex items-center gap-3 group">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-tr from-cyan-600 to-teal-400 text-slate-950 shadow-md shadow-cyan-950/50 group-hover:scale-105 transition-transform">
+                        <ShieldCheck className="h-5 w-5" />
+                    </div>
+                    <div>
+                        <div className="text-lg font-bold tracking-tight text-white flex items-center gap-1.5">
+                            CyberLoy
+                            <span className="text-[10px] px-1.5 py-0.2 rounded bg-cyan-950 border border-cyan-500/40 text-cyan-400 font-mono">
+                                LMS
+                            </span>
+                        </div>
+                        <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-cyan-400/80">
+                            {isAdminUser ? 'Admin Portal' : 'Student Workspace'}
+                        </div>
+                    </div>
                 </Link>
             </div>
 
-            {/* Navigation Menu List */}
-            <nav className="flex-1 py-4 px-3 space-y-1.5 overflow-y-auto text-sm">
-                {isAdminUser ? (
-                    /* ADMIN SIDEBAR NAVIGATION ITEMS */
-                    <>
-                        {/* 1. Dashboard Analytics */}
-                        <button
-                            onClick={() => {
-                                if (location.pathname !== '/admin') navigate('/admin');
-                                if (setActiveTab) setActiveTab('analytics');
-                            }}
-                            className={`w-full flex items-center justify-between px-4 py-3 rounded-xl font-semibold transition-all ${
-                                location.pathname === '/admin' && (activeTab === 'analytics' || !activeTab)
-                                    ? 'bg-[#16244A] text-white border-l-4 border-cyan-400 shadow-md'
-                                    : 'text-slate-300 hover:bg-[#0F1C3F] hover:text-white'
-                            }`}
-                        >
-                            <div className="flex items-center gap-3.5">
-                                <LayoutGrid className="w-5 h-5 text-cyan-400 shrink-0" />
-                                <span>Dashboard Analytics</span>
-                            </div>
-                        </button>
-
-                        {/* 2. Academic Management (Collapsible) */}
-                        <div>
-                            <button
-                                onClick={() => setAcademicOpen(!academicOpen)}
-                                className="w-full flex items-center justify-between px-4 py-3 rounded-xl font-semibold text-slate-300 hover:bg-[#0F1C3F] hover:text-white transition"
-                            >
-                                <div className="flex items-center gap-3.5">
-                                    <GraduationCap className="w-5 h-5 text-cyan-400 shrink-0" />
-                                    <span>Academic Management</span>
-                                </div>
-                                {academicOpen ? (
-                                    <ChevronDown className="w-4 h-4 text-slate-400" />
-                                ) : (
-                                    <ChevronRight className="w-4 h-4 text-slate-400" />
-                                )}
-                            </button>
-
-                            {academicOpen && (
-                                <div className="ml-9 mt-1 space-y-1 pl-2 border-l border-[#1A2C5A]">
-                                    <Link
-                                        to="/admin/builder"
-                                        className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium transition ${
-                                            location.pathname === '/admin/builder'
-                                                ? 'bg-[#16244A] text-cyan-300 font-bold'
-                                                : 'text-slate-400 hover:text-slate-100 hover:bg-[#0F1C3F]'
-                                        }`}
-                                    >
-                                        <BookOpen className="w-3.5 h-3.5 text-cyan-400" />
-                                        <span>Course Curriculum Builder</span>
-                                    </Link>
-
-                                    <button
-                                        onClick={() => {
-                                            if (location.pathname !== '/admin') navigate('/admin');
-                                            if (setActiveTab) setActiveTab('new_course');
-                                        }}
-                                        className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium transition text-left ${
-                                            activeTab === 'new_course'
-                                                ? 'bg-[#16244A] text-cyan-300 font-bold'
-                                                : 'text-slate-400 hover:text-slate-100 hover:bg-[#0F1C3F]'
-                                        }`}
-                                    >
-                                        <Plus className="w-3.5 h-3.5 text-emerald-400" />
-                                        <span>Publish New Course</span>
-                                    </button>
-                                </div>
-                            )}
+            {/* Navigation Links */}
+            <nav className="flex-1 px-3 py-4 overflow-y-auto space-y-6 custom-scrollbar">
+                {navSections.map((section) => (
+                    <div key={section.title}>
+                        <div className="mb-2 px-3 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">
+                            {section.title}
                         </div>
 
-                        {/* 3. Financial Service (Collapsible) */}
-                        <div>
-                            <button
-                                onClick={() => setFinancialOpen(!financialOpen)}
-                                className="w-full flex items-center justify-between px-4 py-3 rounded-xl font-semibold text-slate-300 hover:bg-[#0F1C3F] hover:text-white transition"
-                            >
-                                <div className="flex items-center gap-3.5">
-                                    <Banknote className="w-5 h-5 text-emerald-400 shrink-0" />
-                                    <span>Financial Service</span>
-                                </div>
-                                {financialOpen ? (
-                                    <ChevronDown className="w-4 h-4 text-slate-400" />
-                                ) : (
-                                    <ChevronRight className="w-4 h-4 text-slate-400" />
-                                )}
-                            </button>
+                        <div className="space-y-1">
+                            {section.items.map((item) => {
+                                const Icon = item.icon;
+                                const isActive = location.pathname === item.path;
 
-                            {financialOpen && (
-                                <div className="ml-9 mt-1 space-y-1 pl-2 border-l border-[#1A2C5A]">
+                                return (
                                     <button
+                                        key={item.id}
                                         onClick={() => {
-                                            if (location.pathname !== '/admin') navigate('/admin');
-                                            if (setActiveTab) setActiveTab('payments');
+                                            if (location.pathname !== item.path) {
+                                                navigate(item.path);
+                                            }
+                                            if (setActiveTab) {
+                                                setActiveTab(item.id);
+                                            }
                                         }}
-                                        className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition ${
-                                            activeTab === 'payments'
-                                                ? 'bg-[#16244A] text-emerald-300 font-bold'
-                                                : 'text-slate-400 hover:text-slate-100 hover:bg-[#0F1C3F]'
+                                        className={`flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left transition duration-150 ${
+                                            isActive
+                                                ? 'bg-gradient-to-r from-cyan-500/20 to-teal-500/10 border border-cyan-500/40 text-cyan-300 shadow-sm'
+                                                : 'text-slate-300 hover:bg-slate-800/80 hover:text-white border border-transparent'
                                         }`}
                                     >
-                                        <div className="flex items-center gap-2.5">
-                                            <CreditCard className="w-3.5 h-3.5 text-emerald-400" />
-                                            <span>Payment Transactions</span>
+                                        <div className="flex items-center gap-3 min-w-0">
+                                            <Icon className={`h-4 w-4 shrink-0 ${isActive ? 'text-cyan-400' : 'text-slate-400'}`} />
+                                            <div className="truncate">
+                                                <div className="text-xs font-semibold tracking-wide truncate">{item.label}</div>
+                                            </div>
                                         </div>
-                                        {paymentsCount > 0 && (
-                                            <span className="bg-emerald-950 text-emerald-300 px-1.5 py-0.2 rounded font-mono text-[10px]">
-                                                {paymentsCount}
+
+                                        {item.badge && (
+                                            <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase shrink-0 ${
+                                                isActive
+                                                    ? 'bg-cyan-500 text-slate-950 font-extrabold'
+                                                    : 'bg-slate-800 text-cyan-400 border border-cyan-900/60'
+                                            }`}>
+                                                {item.badge}
                                             </span>
                                         )}
                                     </button>
-                                </div>
-                            )}
+                                );
+                            })}
                         </div>
+                    </div>
+                ))}
 
-                        {/* 4. ISO 27001 Task Builder */}
-                        <Link
-                            to="/admin/task-builder"
-                            className={`w-full flex items-center justify-between px-4 py-3 rounded-xl font-semibold transition-all ${
-                                location.pathname === '/admin/task-builder'
-                                    ? 'bg-[#16244A] text-white border-l-4 border-emerald-400 shadow-md'
-                                    : 'text-slate-300 hover:bg-[#0F1C3F] hover:text-white'
-                            }`}
-                        >
-                            <div className="flex items-center gap-3.5">
-                                <Briefcase className="w-5 h-5 text-amber-400 shrink-0" />
-                                <span>ISO 27001 Task Builder</span>
-                            </div>
-                        </Link>
-
-                        {/* 5. Student Management */}
-                        <Link
-                            to="/admin/students"
-                            className={`w-full flex items-center justify-between px-4 py-3 rounded-xl font-semibold transition-all ${
-                                location.pathname === '/admin/students'
-                                    ? 'bg-[#16244A] text-white border-l-4 border-cyan-400 shadow-md'
-                                    : 'text-slate-300 hover:bg-[#0F1C3F] hover:text-white'
-                            }`}
-                        >
-                            <div className="flex items-center gap-3.5">
-                                <Users className="w-5 h-5 text-cyan-400 shrink-0" />
-                                <span>Student Management</span>
-                            </div>
-                        </Link>
-
-                        {/* 6. Emergency Incident Escalation Tickets */}
-                        <button
-                            onClick={() => {
-                                if (location.pathname !== '/admin') navigate('/admin');
-                                if (setActiveTab) setActiveTab('support');
-                            }}
-                            className={`w-full flex items-center justify-between px-4 py-3 rounded-xl font-semibold transition-all ${
-                                location.pathname === '/admin' && activeTab === 'support'
-                                    ? 'bg-[#16244A] text-white border-l-4 border-rose-500 shadow-md'
-                                    : 'text-slate-300 hover:bg-[#0F1C3F] hover:text-white'
-                            }`}
-                        >
-                            
-                        </button>
-
-                        {/* 7. All Courses */}
-                        <Link
-                            to="/courses"
-                            className={`w-full flex items-center justify-between px-4 py-3 rounded-xl font-semibold transition-all ${
-                                location.pathname === '/courses'
-                                    ? 'bg-[#16244A] text-white border-l-4 border-cyan-400 shadow-md'
-                                    : 'text-slate-300 hover:bg-[#0F1C3F] hover:text-white'
-                            }`}
-                        >
-                            <div className="flex items-center gap-3.5">
-                                <BookOpen className="w-5 h-5 text-blue-400 shrink-0" />
-                                <span>All Courses</span>
-                            </div>
-                        </Link>
-
-                    </>
-                ) : (
-                    /* STUDENT SIDEBAR NAVIGATION ITEMS */
-                    <>
-                        {/* 1. All Courses / My Learning */}
-                        <Link
-                            to="/courses"
-                            className={`w-full flex items-center justify-between px-4 py-3 rounded-xl font-semibold transition-all ${
-                                location.pathname === '/courses'
-                                    ? 'bg-[#16244A] text-white border-l-4 border-cyan-400 shadow-md'
-                                    : 'text-slate-300 hover:bg-[#0F1C3F] hover:text-white'
-                            }`}
-                        >
-                            <div className="flex items-center gap-3.5">
-                                <BookOpen className="w-5 h-5 text-cyan-400 shrink-0" />
-                                <span>My Courses & Learning</span>
-                            </div>
-                        </Link>
-
-                        {/* 2. My ISO Excel Tasks */}
-                        <Link
-                            to="/my-tasks"
-                            className={`w-full flex items-center justify-between px-4 py-3 rounded-xl font-semibold transition-all ${
-                                location.pathname === '/my-tasks'
-                                    ? 'bg-[#16244A] text-white border-l-4 border-emerald-400 shadow-md'
-                                    : 'text-slate-300 hover:bg-[#0F1C3F] hover:text-white'
-                            }`}
-                        >
-                            <div className="flex items-center gap-3.5">
-                                <ClipboardList className="w-5 h-5 text-emerald-400 shrink-0" />
-                                <span>My ISO Excel Tasks</span>
-                            </div>
-                        </Link>
-
-                        {/* 3. My Certificates */}
-                        <Link
-                            to="/certificates"
-                            className={`w-full flex items-center justify-between px-4 py-3 rounded-xl font-semibold transition-all ${
-                                location.pathname === '/certificates'
-                                    ? 'bg-[#16244A] text-white border-l-4 border-amber-400 shadow-md'
-                                    : 'text-slate-300 hover:bg-[#0F1C3F] hover:text-white'
-                            }`}
-                        >
-                            <div className="flex items-center gap-3.5">
-                                <Award className="w-5 h-5 text-amber-400 shrink-0" />
-                                <span>My Certificates</span>
-                            </div>
-                        </Link>
-                    </>
-                )}
-
-                <div className="pt-6 border-t border-[#162447] mt-4 space-y-1.5">
+                {/* Quick Emergency Incident Support Banner */}
+                <div className="pt-2">
                     <button
                         onClick={() => setShowEmergencyModal(true)}
-                        className="w-full flex items-center gap-3.5 px-4 py-3 rounded-xl font-semibold text-rose-300 hover:bg-rose-950/40 hover:text-rose-200 transition bg-rose-950/20 border border-rose-800/50"
+                        className="w-full flex items-center justify-between gap-3 p-3 rounded-2xl bg-gradient-to-r from-rose-950/40 to-red-950/20 border border-rose-800/40 text-rose-300 hover:bg-rose-950/60 hover:border-rose-700/60 transition group text-left"
                     >
-                        <ShieldAlert className="w-5 h-5 shrink-0" />
-                        <span>Emergency Support</span>
-                    </button>
-
-                    {/* Logout */}
-                    <button
-                        onClick={handleLogout}
-                        className="w-full flex items-center gap-3.5 px-4 py-3 rounded-xl font-semibold text-rose-400 hover:bg-rose-950/40 hover:text-rose-300 transition"
-                    >
-                        <LogOut className="w-5 h-5 shrink-0" />
-                        <span>Logout</span>
+                        <div className="flex items-center gap-2.5">
+                            <div className="w-8 h-8 rounded-xl bg-rose-950 border border-rose-700/50 flex items-center justify-center text-rose-400 group-hover:scale-105 transition-transform shrink-0">
+                                <ShieldAlert className="w-4 h-4" />
+                            </div>
+                            <div>
+                                <div className="text-xs font-bold text-rose-200">Incident Support</div>
+                                <div className="text-[10px] text-rose-400/80">24/7 Rapid Response</div>
+                            </div>
+                        </div>
+                        <ChevronRight className="w-4 h-4 text-rose-400/70 group-hover:translate-x-0.5 transition-transform" />
                     </button>
                 </div>
             </nav>
 
-            {/* Footer User Info */}
-            {user && (
-                <div className="p-4 border-t border-[#162447] bg-[#0A1128] flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-full bg-cyan-500 text-slate-950 font-black flex items-center justify-center text-xs shrink-0 uppercase">
-                        {user.name?.charAt(0)}
+            {/* Footer Profile & Logout */}
+            <div className="border-t border-slate-800 bg-[#081b35] p-3 space-y-2">
+                <div className="flex items-center justify-between rounded-xl border border-slate-700/60 bg-slate-900/80 p-2.5">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-tr from-cyan-600 to-teal-500 text-slate-950 text-xs font-black shadow-sm">
+                            {user?.name?.charAt(0)?.toUpperCase() || 'U'}
+                        </div>
+                        <div className="truncate text-left">
+                            <div className="text-xs font-bold text-slate-200 truncate">{user?.name || 'User'}</div>
+                            <div className="text-[10px] font-mono uppercase text-cyan-400">
+                                {isAdminUser ? 'Administrator' : 'Student'}
+                            </div>
+                        </div>
                     </div>
-                    <div className="overflow-hidden font-mono text-xs">
-                        <span className="text-white font-bold block truncate">{user.name}</span>
-                        <span className="text-[10px] text-slate-400 capitalize block">{user.role} Account</span>
-                    </div>
+                    <button
+                        onClick={() => setShowEmergencyModal(true)}
+                        title="Incident Support"
+                        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-slate-800 text-rose-400 hover:bg-rose-950/60 transition border border-slate-700"
+                    >
+                        <LifeBuoy className="h-3.5 w-3.5" />
+                    </button>
                 </div>
-            )}
+
+                <button
+                    onClick={handleLogout}
+                    className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-800/80 px-3 py-2 text-xs font-semibold text-slate-300 transition hover:bg-red-950/50 hover:border-red-800/60 hover:text-red-300"
+                >
+                    <LogOut className="h-3.5 w-3.5" />
+                    Sign Out
+                </button>
+            </div>
 
             <EmergencySupportModal
                 isOpen={showEmergencyModal}
@@ -308,4 +285,3 @@ export default function PortalSidebar({ activeTab, setActiveTab, paymentsCount =
         </aside>
     );
 }
-

@@ -45,11 +45,11 @@ function LMSLayout({ children }) {
     const showSidebar = user && !hideSidebarPaths.includes(location.pathname);
 
     return (
-        <div className="min-h-screen bg-[#050A18] text-slate-100 font-sans selection:bg-cyan-500 selection:text-slate-950 flex flex-col">
+        <div className="min-h-screen bg-[#07172d] text-slate-100 font-sans flex flex-col">
             <Navbar />
             <div className="flex flex-1 relative">
                 {showSidebar && <PortalSidebar />}
-                <main className="flex-1 overflow-x-hidden min-w-0">{children}</main>
+                <main className="flex-1 overflow-x-hidden min-w-0 bg-[#f4f7fb] text-slate-800">{children}</main>
             </div>
         </div>
     );

@@ -1,22 +1,29 @@
 export const getApiBaseUrl = () => {
-    if (import.meta.env.VITE_API_URL) {
-        return import.meta.env.VITE_API_URL.replace(/\/+$/, '');
-    }
-
     if (typeof window !== 'undefined') {
         const hostname = window.location.hostname;
-
         if (hostname === 'localhost' || hostname === '127.0.0.1') {
-            return 'http://localhost:8035/api';
+            return '/api';
+        }
+
+        if (import.meta.env?.VITE_API_URL) {
+            return import.meta.env.VITE_API_URL.replace(/\/+$/, '');
         }
 
         return `${window.location.origin.replace(/\/+$/, '')}/api`;
     }
 
-    return 'http://localhost:8035/api';
+    if (import.meta.env?.VITE_API_URL) {
+        return import.meta.env.VITE_API_URL.replace(/\/+$/, '');
+    }
+
+    return 'http://127.0.0.1:8000/api';
 };
 
-const API_BASE_URL = getApiBaseUrl();
+export const getFullApiUrl = (endpoint) => {
+    const base = getApiBaseUrl();
+    const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+    return `${base}${cleanEndpoint}`;
+};
 
 export const getAuthToken = () => localStorage.getItem('lms_token');
 export const setAuthToken = (token) => localStorage.setItem('lms_token', token);
@@ -46,22 +53,46 @@ async function request(endpoint, options = {}) {
         headers,
     };
 
-    try {
-        const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
-        const data = await response.json().catch(() => ({}));
+    const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
 
-        if (!response.ok) {
-            const error = new Error(data.message || data.error || `HTTP error! status: ${response.status}`);
-            error.status = response.status;
-            error.data = data;
-            throw error;
+    // Candidate URL bases to attempt in sequence
+    const candidateBases = [
+        getApiBaseUrl(),
+        'http://127.0.0.1:8000/api',
+        'http://localhost:8000/api',
+        '/api',
+    ];
+    const uniqueBases = Array.from(new Set(candidateBases.filter(Boolean)));
+
+    let lastError = null;
+
+    for (const base of uniqueBases) {
+        try {
+            const url = `${base.replace(/\/+$/, '')}${cleanEndpoint}`;
+            const response = await fetch(url, config);
+            const data = await response.json().catch(() => ({}));
+
+            if (!response.ok) {
+                const error = new Error(data.message || data.error || `HTTP error! status: ${response.status}`);
+                error.status = response.status;
+                error.data = data;
+                throw error;
+            }
+
+            return data;
+        } catch (err) {
+            lastError = err;
+            // If server returned an HTTP status (like 401 or 422), do not retry network addresses
+            if (err.status) {
+                throw err;
+            }
+            // If network/port failed (TypeError: Failed to fetch), try next candidate URL
+            console.warn(`[LMS API] Attempt on ${base}${cleanEndpoint} failed:`, err.message);
         }
-
-        return data;
-    } catch (err) {
-        console.error(`API Error (${endpoint}):`, err);
-        throw err;
     }
+
+    console.error(`[LMS API] All endpoints failed for (${endpoint}):`, lastError);
+    throw lastError || new Error('Failed to connect to LMS backend server.');
 }
 
 export const api = {
@@ -124,6 +155,7 @@ export const api = {
     getMyCertificates: () => request('/certificates/my-certificates'),
     getCertificateDetails: (code) => request(`/certificates/${code}`),
     verifyCertificate: (code) => request(`/certificates/verify/${code}`),
+    issueCertificate: (certData) => request('/admin/issue-certificate', { method: 'POST', body: JSON.stringify(certData) }),
 
     // Notifications
     getNotifications: () => request('/notifications'),
