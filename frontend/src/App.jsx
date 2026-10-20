@@ -18,7 +18,9 @@ import AdminTaskBuilderPage from './pages/AdminTaskBuilderPage';
 import StudentTasksPage from './pages/StudentTasksPage';
 import EmergencySupportRequestsPage from './pages/EmergencySupportRequestsPage';
 import InstructorReviewPage from './pages/InstructorReviewPage';
+import InstructorGradebookPage from './pages/InstructorGradebookPage';
 import CourseDiscussionsPage from './pages/CourseDiscussionsPage';
+import StudentDashboardPage from './pages/StudentDashboardPage';
 import PasswordResetPage from './pages/PasswordResetPage';
 import EmailVerifiedPage from './pages/EmailVerifiedPage';
 
@@ -81,10 +83,12 @@ function AppContent() {
                 <Route path="/register" element={<LMSLayout><RegisterPage /></LMSLayout>} />
                 <Route path="/reset-password" element={<LMSLayout><PasswordResetPage /></LMSLayout>} />
                 <Route path="/email-verified" element={<LMSLayout><EmailVerifiedPage /></LMSLayout>} />
+                <Route path="/dashboard" element={<ProtectedRoute><LMSLayout><StudentDashboardPage /></LMSLayout></ProtectedRoute>} />
                 <Route path="/courses" element={<LMSLayout><CourseListPage /></LMSLayout>} />
                 <Route path="/courses/:id" element={<LMSLayout><CourseDetailPage /></LMSLayout>} />
                 <Route path="/courses/:id/discussions" element={<ProtectedRoute><LMSLayout><CourseDiscussionsPage /></LMSLayout></ProtectedRoute>} />
                 <Route path="/instructor/reviews" element={<ProtectedRoute instructorOnly><LMSLayout><InstructorReviewPage /></LMSLayout></ProtectedRoute>} />
+                <Route path="/instructor/gradebook" element={<ProtectedRoute instructorOnly><LMSLayout><InstructorGradebookPage /></LMSLayout></ProtectedRoute>} />
 
                 {/* Interactive Learning Classroom Theatre */}
                 <Route
@@ -162,6 +166,14 @@ function AppContent() {
                     element={
                         <ProtectedRoute adminOnly>
                             <LMSLayout><EmergencySupportRequestsPage /></LMSLayout>
+                        </ProtectedRoute>
+                    }
+                />
+                <Route
+                    path="/admin/gradebook"
+                    element={
+                        <ProtectedRoute adminOnly>
+                            <LMSLayout><InstructorGradebookPage /></LMSLayout>
                         </ProtectedRoute>
                     }
                 />

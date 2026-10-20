@@ -28,11 +28,15 @@ class CourseDiscussionController extends Controller
         $course = Course::findOrFail($courseId);
         abort_unless($this->canAccess($course, $request->user()), 403, 'Enroll in this course to join its discussion.');
 
-        return CourseDiscussion::with(['user:id,name,role', 'replies.user:id,name,role'])
+        $query = CourseDiscussion::with(['user:id,name,role', 'replies.user:id,name,role'])
             ->where('course_id', $course->id)
-            ->whereNull('parent_id')
-            ->latest()
-            ->paginate(30);
+            ->whereNull('parent_id');
+
+        if ($request->has('lesson_id')) {
+            $query->where('lesson_id', $request->lesson_id);
+        }
+
+        return $query->latest()->paginate(30);
     }
 
     public function store(Request $request, $courseId)
@@ -43,6 +47,7 @@ class CourseDiscussionController extends Controller
         $validated = $request->validate([
             'body' => 'required|string|max:5000',
             'parent_id' => 'nullable|integer|exists:course_discussions,id',
+            'lesson_id' => 'nullable|exists:lessons,id',
         ]);
 
         if (!empty($validated['parent_id'])) {
@@ -54,6 +59,7 @@ class CourseDiscussionController extends Controller
             'course_id' => $course->id,
             'user_id' => $request->user()->id,
             'parent_id' => $validated['parent_id'] ?? null,
+            'lesson_id' => $validated['lesson_id'] ?? null,
             'body' => $validated['body'],
         ]);
 

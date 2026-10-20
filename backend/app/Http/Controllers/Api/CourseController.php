@@ -494,8 +494,11 @@ class CourseController extends Controller
         }
 
         $request->validate([
-            'answers' => 'required|array|min:1',
-            'answers.*' => 'required|string|max:10000',
+            'answers' => 'required_without:file_urls|array|min:1',
+            'answers.*' => 'nullable|string|max:10000',
+            'file_urls' => 'nullable|array',
+            'file_urls.*' => 'string|max:1000',
+            'submission_text' => 'nullable|string|max:10000',
         ]);
 
         if (!in_array($user->role, ['user', 'student'], true)) {
@@ -538,7 +541,8 @@ class CourseController extends Controller
 
         $maxAttempts = (int) ($lesson->assessment_config['max_attempts'] ?? 3);
 
-        if (count($request->answers) !== count($questions)) {
+        $answers = $request->answers ?? [];
+        if ($lesson->assessment_type === 'mcq' && count($answers) !== count($questions)) {
             return response()->json(['message' => 'Please answer every assessment question.'], 422);
         }
 
@@ -595,7 +599,9 @@ class CourseController extends Controller
                 'user_id' => $user->id,
                 'course_id' => $course->id,
                 'lesson_id' => $lesson->id,
-                'answers' => $request->answers,
+                'answers' => $request->answers ?? [],
+                'file_urls' => $request->file_urls ?? [],
+                'submission_text' => $request->submission_text ?? null,
                 'score' => $score,
                 'passed' => $passed,
                 'attempt_number' => $attempts + 1,
@@ -626,7 +632,10 @@ class CourseController extends Controller
                     ]
                 );
             }
-            CourseCompletionService::refresh($course, $user);
+            $completion = CourseCompletionService::refresh($course, $user);
+            if (($completion['is_complete'] ?? false) && ($course->certificate_auto_issue ?? true)) {
+                $this->autoIssueCertificate($course, $user);
+            }
         }
 
         return response()->json([
@@ -827,6 +836,37 @@ class CourseController extends Controller
         return response()->json([
             'message' => 'Enrolled successfully in ' . $course->title,
             'enrollment' => $enrollment,
+        ]);
+    }
+
+    private function autoIssueCertificate(Course $course, $user)
+    {
+        $existing = \App\Models\Certificate::where('user_id', $user->id)->where('course_id', $course->id)->exists();
+        if ($existing) {
+            return;
+        }
+
+        $code = 'CERT-' . date('Y') . '-' . strtoupper(\Illuminate\Support\Str::random(6)) . '-' . rand(100, 999);
+        $verCode = 'VER-' . strtoupper(\Illuminate\Support\Str::random(4)) . '-' . strtoupper(\Illuminate\Support\Str::random(4));
+
+        \App\Models\Certificate::create([
+            'certificate_code' => $code,
+            'verification_code' => $verCode,
+            'user_id' => $user->id,
+            'course_id' => $course->id,
+            'issued_by' => 1,
+            'issued_at' => now(),
+            'completion_date' => now(),
+            'status' => 'issued',
+            'auto_issued' => true,
+        ]);
+
+        \App\Models\Notification::create([
+            'user_id' => $user->id,
+            'title' => 'Official Certificate Issued!',
+            'message' => 'Congratulations! Your certificate for "' . $course->title . '" has been automatically issued. Certificate Code: ' . $code,
+            'type' => 'certificate_issued',
+            'is_read' => false,
         ]);
     }
 }

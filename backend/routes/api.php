@@ -12,6 +12,13 @@ use App\Http\Controllers\Api\ProjectTaskController;
 use App\Http\Controllers\Api\EmergencySupportController;
 use App\Http\Controllers\Api\CourseDiscussionController;
 use App\Http\Controllers\Api\InstructorController;
+use App\Http\Controllers\Api\AnnouncementController;
+use App\Http\Controllers\Api\LessonNoteController;
+use App\Http\Controllers\Api\CourseReviewController;
+use App\Http\Controllers\Api\DashboardController;
+use App\Http\Controllers\Api\GradebookController;
+use App\Http\Controllers\Api\UploadController;
+use App\Http\Controllers\Api\CouponController;
 
 /*
 |--------------------------------------------------------------------------
@@ -49,12 +56,35 @@ Route::middleware('auth:api')->group(function () {
     Route::get('/user', [AuthController::class, 'me']);
     Route::post('/logout', [AuthController::class, 'logout']);
 
+    // Dashboard
+    Route::get('/dashboard/student', [DashboardController::class, 'studentDashboard']);
+
+    // Announcements
+    Route::get('/announcements', [AnnouncementController::class, 'index']);
+    Route::post('/announcements', [AnnouncementController::class, 'store']);
+    Route::delete('/announcements/{id}', [AnnouncementController::class, 'destroy']);
+
+    // Lesson Notes
+    Route::get('/lessons/{lessonId}/notes', [LessonNoteController::class, 'index']);
+    Route::post('/notes', [LessonNoteController::class, 'store']);
+    Route::put('/notes/{id}', [LessonNoteController::class, 'update']);
+    Route::delete('/notes/{id}', [LessonNoteController::class, 'destroy']);
+
+    // Course Reviews
+    Route::get('/courses/{courseId}/reviews', [CourseReviewController::class, 'index']);
+    Route::post('/courses/{courseId}/reviews', [CourseReviewController::class, 'store']);
+
     // Course Enrollment & Payment
     Route::post('/courses/{id}/enroll', [CourseController::class, 'enroll']);
     Route::post('/courses/{id}/pay', [CourseController::class, 'pay']);
+    Route::post('/coupons/validate', [CouponController::class, 'validate']);
     Route::get('/courses/{courseId}/discussions', [CourseDiscussionController::class, 'index']);
     Route::post('/courses/{courseId}/discussions', [CourseDiscussionController::class, 'store']);
     Route::get('/payments/checkout/{sessionId}', [CourseController::class, 'checkoutStatus']);
+
+    // Uploads
+    Route::post('/upload/assignment', [UploadController::class, 'uploadAssignment']);
+    Route::post('/upload/lesson-resource', [UploadController::class, 'uploadLessonResource']);
 
     // Learning Classroom & Video Playback Tracking
     Route::get('/learn/{courseId}/{lessonId}', [CourseController::class, 'getLesson']);
@@ -64,6 +94,8 @@ Route::middleware('auth:api')->group(function () {
     Route::middleware('instructor')->prefix('instructor')->group(function () {
         Route::get('/assessment-submissions', [InstructorController::class, 'submissions']);
         Route::put('/assessment-submissions/{submissionId}', [InstructorController::class, 'grade']);
+        Route::get('/gradebook', [GradebookController::class, 'index']);
+        Route::get('/gradebook/courses/{courseId}/students/{studentId}', [GradebookController::class, 'studentDetail']);
     });
 
     // Student Project & Task Management
@@ -86,6 +118,10 @@ Route::middleware('auth:api')->group(function () {
         Route::get('/admin/payments', [AdminController::class, 'paymentsList']);
         Route::get('/admin/user-activities', [AdminController::class, 'userActivities']);
         Route::get('/admin/students/{id}/progress', [AdminController::class, 'studentProgressDetail']);
+        Route::get('/admin/gradebook', [GradebookController::class, 'index']);
+        Route::get('/admin/gradebook/courses/{courseId}/students/{studentId}', [GradebookController::class, 'studentDetail']);
+        Route::get('/admin/coupons', [CouponController::class, 'index']);
+        Route::post('/admin/coupons', [CouponController::class, 'store']);
 
         // Course Builder & Content Management
         Route::post('/admin/courses', [AdminController::class, 'createCourse']);

@@ -19,7 +19,9 @@ import {
     Award,
     FileCheck,
     Layers,
-    ListTodo
+    ListTodo,
+    LayoutDashboard,
+    BarChart
 } from 'lucide-react';
 
 import { useAuth } from '../context/AuthContext';
@@ -60,6 +62,13 @@ export default function PortalSidebar({ activeTab, setActiveTab }) {
                     path: '/admin/emergency-support',
                     badge: '24/7',
                     description: 'Review and manage incident requests',
+                },
+                {
+                    id: 'gradebook',
+                    label: 'Gradebook',
+                    icon: BarChart,
+                    path: '/admin/gradebook',
+                    description: 'Track all student progress',
                 },
             ],
         },
@@ -115,7 +124,15 @@ export default function PortalSidebar({ activeTab, setActiveTab }) {
             title: 'MY WORKSPACE',
             items: [
                 {
-                    id: 'my-tasks',
+                    id: 'dashboard',
+                    label: 'My Dashboard',
+                    icon: LayoutDashboard,
+                    path: '/dashboard',
+                    badge: 'New',
+                    description: 'Overview of progress & activity',
+                },
+                {
+                    id: 'tasks',
                     label: 'My ISO 27001 Tasks',
                     icon: CheckSquare,
                     path: '/my-tasks',
@@ -157,6 +174,7 @@ export default function PortalSidebar({ activeTab, setActiveTab }) {
             title: 'TEACHING',
             items: [
                 { id: 'reviews', label: 'Assessment Reviews', icon: FileText, path: '/instructor/reviews', description: 'Grade learner work and provide feedback' },
+                { id: 'gradebook', label: 'Gradebook', icon: BarChart, path: '/instructor/gradebook', description: 'Track student progress' },
                 { id: 'courses', label: 'Course Catalog', icon: BookOpen, path: '/courses', description: 'View learning courses' },
             ],
         },

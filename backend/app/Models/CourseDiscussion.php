@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class CourseDiscussion extends Model
 {
-    protected $fillable = ['course_id', 'user_id', 'parent_id', 'body'];
+    protected $fillable = ['course_id', 'user_id', 'parent_id', 'lesson_id', 'body'];
 
     public function course()
     {
@@ -16,6 +16,11 @@ class CourseDiscussion extends Model
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function lesson()
+    {
+        return $this->belongsTo(Lesson::class);
     }
 
     public function parent()

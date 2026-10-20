@@ -204,6 +204,32 @@ export const api = {
     deleteProjectTask: (taskId) => request(`/admin/project-tasks/${taskId}`, { method: 'DELETE' }),
     assignUsersToProjectPlan: (planId, userIds) => request(`/admin/project-plans/${planId}/assign`, { method: 'POST', body: JSON.stringify({ user_ids: userIds }) }),
     adminUpdateUserTaskProgress: (planId, userId, data) => request(`/admin/project-plans/${planId}/users/${userId}/progress`, { method: 'POST', body: JSON.stringify(data) }),
+
+    // New Features
+    studentDashboard: () => request('/dashboard/student'),
+    getAnnouncements: (courseId = null) => request(courseId ? `/announcements?course_id=${courseId}` : '/announcements'),
+    createAnnouncement: (data) => request('/announcements', { method: 'POST', body: JSON.stringify(data) }),
+    getLessonNotes: (lessonId) => request(`/lessons/${lessonId}/notes`),
+    createLessonNote: (data) => request('/notes', { method: 'POST', body: JSON.stringify(data) }),
+    deleteLessonNote: (id) => request(`/notes/${id}`, { method: 'DELETE' }),
+    getCourseReviews: (courseId) => request(`/courses/${courseId}/reviews`),
+    submitCourseReview: (courseId, data) => request(`/courses/${courseId}/reviews`, { method: 'POST', body: JSON.stringify(data) }),
+    uploadAssignment: (file) => {
+        const formData = new FormData();
+        formData.append('file', file);
+        const token = getAuthToken();
+        return fetch(getFullApiUrl('/upload/assignment'), {
+            method: 'POST',
+            headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+            body: formData,
+        }).then(async (res) => {
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.message || 'Upload failed');
+            return data;
+        });
+    },
+    getGradebook: () => request('/instructor/gradebook'),
+    getAdminGradebook: () => request('/admin/gradebook'),
     // Emergency Support Incident Response
     submitEmergencySupport: (data) => request('/emergency-support', { method: 'POST', body: JSON.stringify(data) }),
     getEmergencySupportTickets: () => request('/admin/emergency-support'),
