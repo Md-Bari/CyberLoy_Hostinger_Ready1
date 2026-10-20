@@ -17,11 +17,15 @@ class LessonAssessmentSubmission extends Model
         'score',
         'status',
         'teacher_notes',
+        'attempt_number',
+        'passed',
     ];
 
     protected $casts = [
         'answers' => 'array',
         'score' => 'integer',
+        'attempt_number' => 'integer',
+        'passed' => 'boolean',
     ];
 
     public function lesson()

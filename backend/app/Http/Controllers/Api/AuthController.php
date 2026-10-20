@@ -6,7 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Validation\ValidationException;
+use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Str;
 
 class AuthController extends Controller
 {
@@ -26,11 +27,11 @@ class AuthController extends Controller
         $request->validate([
             'name'     => 'required|string|max:255',
             'email'    => 'required|string|email|max:255|unique:users',
-            'password' => 'required|string|min:6',
-            'role'     => 'nullable|in:user,admin',
+            'password' => 'required|string|min:12',
+            'role'     => 'nullable|in:user,instructor,admin',
         ]);
 
-        $role = $request->role === 'admin' ? 'admin' : 'user';
+        $role = $request->role ?? 'user';
 
         $user = User::create([
             'name'     => $request->name,
@@ -38,9 +39,10 @@ class AuthController extends Controller
             'password' => Hash::make($request->password),
             'role'     => $role,
         ]);
+        $user->sendEmailVerificationNotification();
 
         return response()->json([
-            'message' => $role === 'admin' ? 'Admin account created successfully.' : 'User account created successfully.',
+            'message' => 'Account created. A verification link has been sent to the user.',
             'user'    => $user,
         ], 201);
     }
@@ -64,7 +66,79 @@ class AuthController extends Controller
             ], 401);
         }
 
+        $user = auth('api')->user();
+        if (config('lms.require_email_verification') && !$user->hasVerifiedEmail()) {
+            auth('api')->logout();
+
+            return response()->json([
+                'message' => 'Verify your email address before signing in.',
+                'email_verification_required' => true,
+            ], 403);
+        }
+
         return $this->respondWithToken($token);
+    }
+
+    public function sendPasswordResetLink(Request $request)
+    {
+        $request->validate(['email' => 'required|email']);
+        Password::sendResetLink($request->only('email'));
+
+        return response()->json([
+            'message' => 'If an account exists for that email address, a password reset link has been sent.',
+        ]);
+    }
+
+    public function resetPassword(Request $request)
+    {
+        $validated = $request->validate([
+            'token' => 'required|string',
+            'email' => 'required|email',
+            'password' => 'required|string|min:12|confirmed',
+        ]);
+
+        $status = Password::reset($validated, function (User $user, string $password) {
+            $user->forceFill([
+                'password' => Hash::make($password),
+                'remember_token' => Str::random(60),
+            ])->save();
+        });
+
+        if ($status !== Password::PASSWORD_RESET) {
+            return response()->json([
+                'message' => 'This password reset link is invalid or expired. Request a new one.',
+            ], 422);
+        }
+
+        return response()->json(['message' => 'Password reset successfully. You can now sign in.']);
+    }
+
+    public function verifyEmail(Request $request, $id, $hash)
+    {
+        $user = User::findOrFail($id);
+        if (!hash_equals((string) $hash, sha1($user->getEmailForVerification()))) {
+            abort(403, 'Invalid email verification link.');
+        }
+
+        if (!$user->hasVerifiedEmail()) {
+            $user->markEmailAsVerified();
+        }
+
+        return redirect()->away(rtrim(config('lms.frontend_url'), '/') . '/email-verified?status=success');
+    }
+
+    public function resendVerification(Request $request)
+    {
+        $request->validate(['email' => 'required|email']);
+        $user = User::where('email', $request->email)->first();
+
+        if ($user && !$user->hasVerifiedEmail()) {
+            $user->sendEmailVerificationNotification();
+        }
+
+        return response()->json([
+            'message' => 'If the account needs verification, a new link has been sent.',
+        ]);
     }
 
     /**

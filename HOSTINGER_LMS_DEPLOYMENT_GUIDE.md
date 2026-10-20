@@ -60,6 +60,37 @@ CyberLoy_Hostinger_Ready/
    ```
 
 3. Ensure permissions for `storage/` and `bootstrap/cache/` are set to `775` or writable.
+4. After importing an existing database, run the new schema migrations from the backend directory:
+   ```bash
+   php artisan migrate --force
+   ```
+   Deploy the matching application code and migration files together. Do not skip
+   this step; the instructor, assessment, password-reset, discussion, and Stripe
+   workflows depend on the new columns and tables.
+5. Configure transactional email and Stripe on the server (never in frontend
+   environment variables or committed files):
+   ```ini
+   FRONTEND_URL=https://yourdomain.com
+   AUTH_REQUIRE_EMAIL_VERIFICATION=true
+   MAIL_MAILER=smtp
+   MAIL_SCHEME=smtp
+   MAIL_HOST=your-smtp-host
+   MAIL_PORT=587
+   MAIL_USERNAME=your-smtp-username
+   MAIL_PASSWORD=your-smtp-password
+   MAIL_FROM_ADDRESS=no-reply@yourdomain.com
+   MAIL_FROM_NAME="CyberLoy LMS"
+   STRIPE_SECRET=sk_live_replace_with_your_key
+   STRIPE_WEBHOOK_SECRET=whsec_replace_with_your_signing_secret
+   ```
+   Configure a Stripe webhook at
+   `https://api.yourdomain.com/api/stripe/webhook` for
+   `checkout.session.completed` and `checkout.session.async_payment_succeeded`.
+   Start with Stripe test credentials and verify both successful and cancelled
+   checkout before enabling live payments.
+6. After changing environment values, run `php artisan config:cache`. Confirm
+   `/up` returns a healthy status and that email/reset and signed verification
+   links use the intended HTTPS domain.
 
 ---
 
@@ -74,20 +105,23 @@ CyberLoy_Hostinger_Ready/
 
 ---
 
-## Default Accounts for Testing
+## Initial account security
 
-| Role | Email | Password | Access Capabilities |
-| :--- | :--- | :--- | :--- |
-| **Administrator** | `admin@cyberloy.com` | `password123` | Monitor student task completion %, issue certificates, send notifications |
-| **General Student** | `student@cyberloy.com` | `password123` | Browse courses, complete module tasks, view percentage %, download certificates |
+The SQL dump and local seed data may contain demo users. Before exposing the
+site, remove those users or replace their passwords with unique, strong
+credentials. Create production accounts through the administrator workflow and
+verify that each user receives an email-verification link. Never publish demo
+credentials or use them on a public deployment.
 
 ---
 
 ## Core System Features
 
-1. **User Authentication & Role Control**:
-   - Registration and Login with JWT Sanctum token authentication.
-   - Guarded routes for `admin` and `user`.
+1. **Accounts and role control**:
+   - JWT authentication, instructor and administrator roles, email verification,
+     password-reset links, and role-scoped assessment reviews.
+   - Administrators assign instructors to courses; learners submit work and
+     instructors return scores and feedback.
 
 2. **Module Task Progress & Percentages**:
    - Interactive task checklists for course modules.
@@ -100,3 +134,19 @@ CyberLoy_Hostinger_Ready/
 4. **Certificates & Notifications**:
    - Instant in-app notification when an admin issues a certificate.
    - Printable / downloadable Certificate modal with verification code.
+
+5. **Course discussions and assessments**:
+   - Enrolled learners and assigned instructors can discuss course topics.
+   - MCQ answer keys are graded on the server and hidden from learners; written
+     submissions remain pending until reviewed. Attempts and pass results are
+     recorded.
+
+6. **Payments and operational readiness**:
+   - Stripe-hosted Checkout keeps card data out of the LMS. A signed webhook and
+     server-side session confirmation unlock a course only after Stripe reports
+     payment.
+   - Schedule encrypted database and uploaded-file backups to storage outside
+     the web host. Monitor `/up`, Laravel logs, Stripe webhook delivery, SMTP
+     failures, and disk/database capacity. Perform and record periodic restore
+     tests; the application does not configure an external backup or monitoring
+     provider automatically.

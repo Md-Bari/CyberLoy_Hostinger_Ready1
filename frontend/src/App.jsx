@@ -16,9 +16,14 @@ import CertificatesPage from './pages/CertificatesPage';
 import CertificateVerificationPage from './pages/CertificateVerificationPage';
 import AdminTaskBuilderPage from './pages/AdminTaskBuilderPage';
 import StudentTasksPage from './pages/StudentTasksPage';
+import EmergencySupportRequestsPage from './pages/EmergencySupportRequestsPage';
+import InstructorReviewPage from './pages/InstructorReviewPage';
+import CourseDiscussionsPage from './pages/CourseDiscussionsPage';
+import PasswordResetPage from './pages/PasswordResetPage';
+import EmailVerifiedPage from './pages/EmailVerifiedPage';
 
 
-function ProtectedRoute({ children, adminOnly = false }) {
+function ProtectedRoute({ children, adminOnly = false, instructorOnly = false }) {
     const { user, loading, isAdmin } = useAuth();
 
     if (loading) {
@@ -30,6 +35,9 @@ function ProtectedRoute({ children, adminOnly = false }) {
     }
 
     if (adminOnly && !isAdmin) {
+        return <Navigate to="/courses" replace />;
+    }
+    if (instructorOnly && !['admin', 'instructor'].includes(user.role)) {
         return <Navigate to="/courses" replace />;
     }
 
@@ -71,8 +79,12 @@ function AppContent() {
                 {/* Auth and LMS Application Routes */}
                 <Route path="/login" element={<LMSLayout><LoginPage /></LMSLayout>} />
                 <Route path="/register" element={<LMSLayout><RegisterPage /></LMSLayout>} />
+                <Route path="/reset-password" element={<LMSLayout><PasswordResetPage /></LMSLayout>} />
+                <Route path="/email-verified" element={<LMSLayout><EmailVerifiedPage /></LMSLayout>} />
                 <Route path="/courses" element={<LMSLayout><CourseListPage /></LMSLayout>} />
                 <Route path="/courses/:id" element={<LMSLayout><CourseDetailPage /></LMSLayout>} />
+                <Route path="/courses/:id/discussions" element={<ProtectedRoute><LMSLayout><CourseDiscussionsPage /></LMSLayout></ProtectedRoute>} />
+                <Route path="/instructor/reviews" element={<ProtectedRoute instructorOnly><LMSLayout><InstructorReviewPage /></LMSLayout></ProtectedRoute>} />
 
                 {/* Interactive Learning Classroom Theatre */}
                 <Route
@@ -140,6 +152,16 @@ function AppContent() {
                     element={
                         <ProtectedRoute adminOnly>
                             <LMSLayout><AdminTaskBuilderPage /></LMSLayout>
+                        </ProtectedRoute>
+                    }
+                />
+
+                {/* Emergency incident requests */}
+                <Route
+                    path="/admin/emergency-support"
+                    element={
+                        <ProtectedRoute adminOnly>
+                            <LMSLayout><EmergencySupportRequestsPage /></LMSLayout>
                         </ProtectedRoute>
                     }
                 />

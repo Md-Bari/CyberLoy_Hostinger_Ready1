@@ -57,7 +57,7 @@ export default function StudentDirectoryPage() {
                 role: newUserForm.role,
             });
 
-            setMessage(`${newUserForm.role === 'admin' ? 'Admin' : 'User'} "${newUserForm.name}" created successfully.`);
+            setMessage(`${newUserForm.role} account "${newUserForm.name}" created. A verification email was sent.`);
             setNewUserForm({ name: '', email: '', password: '', role: 'user' });
             await loadStudentDirectory();
         } catch (error) {
@@ -121,7 +121,7 @@ export default function StudentDirectoryPage() {
                         <h4 className="text-base font-bold text-[#0f172a] flex items-center gap-2">
                             <UserPlus className="w-4 h-4 text-blue-600" /> Create New User
                         </h4>
-                        <p className="text-xs text-slate-500 mt-0.5">Create a student or admin account and assign login credentials in the LMS.</p>
+                        <p className="text-xs text-slate-500 mt-0.5">Create a learner, instructor, or admin account. The user must verify their email before signing in.</p>
                     </div>
                     <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 text-[11px] font-semibold">
                         Admin-only action
@@ -132,7 +132,8 @@ export default function StudentDirectoryPage() {
                     <div className="md:col-span-1">
                         <label className="block text-xs font-semibold text-slate-700 mb-1">Full Name</label>
                         <input
-                            type="text"
+                            type="password"
+                            autoComplete="new-password"
                             required
                             value={newUserForm.name}
                             onChange={(e) => setNewUserForm({ ...newUserForm, name: e.target.value })}
@@ -158,7 +159,8 @@ export default function StudentDirectoryPage() {
                             required
                             value={newUserForm.password}
                             onChange={(e) => setNewUserForm({ ...newUserForm, password: e.target.value })}
-                            placeholder="Temporary password"
+                            placeholder="At least 12 characters"
+                            minLength={12}
                             className="w-full bg-[#f8fafc] border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-blue-500 shadow-sm"
                         />
                     </div>
@@ -170,6 +172,7 @@ export default function StudentDirectoryPage() {
                             className="w-full bg-[#f8fafc] border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:border-blue-500 shadow-sm"
                         >
                             <option value="user">User</option>
+                            <option value="instructor">Instructor</option>
                             <option value="admin">Admin</option>
                         </select>
                     </div>

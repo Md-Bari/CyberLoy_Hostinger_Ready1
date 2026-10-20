@@ -1,13 +1,16 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Lock, Mail, Shield, UserCheck, BookOpen, AlertCircle } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Lock, Mail, BookOpen, AlertCircle } from 'lucide-react';
+import { api } from '../lib/api';
 
 export default function LoginPage() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
+    const [verificationNotice, setVerificationNotice] = useState(false);
+    const [resendMessage, setResendMessage] = useState('');
     const { login } = useAuth();
     const navigate = useNavigate();
 
@@ -20,23 +23,25 @@ export default function LoginPage() {
             const res = await login(email, password);
             if (res.user?.role === 'admin') {
                 navigate('/admin');
+            } else if (res.user?.role === 'instructor') {
+                navigate('/instructor/reviews');
             } else {
                 navigate('/courses');
             }
         } catch (err) {
             setError(err.message || 'Login failed. Please check credentials.');
+            setVerificationNotice(Boolean(err.data?.email_verification_required));
         } finally {
             setLoading(false);
         }
     };
 
-    const setDemoUser = (type) => {
-        if (type === 'admin') {
-            setEmail('admin@cyberloy.com');
-            setPassword('password123');
-        } else {
-            setEmail('student@cyberloy.com');
-            setPassword('password123');
+    const resendVerification = async () => {
+        try {
+            const result = await api.resendVerification(email);
+            setResendMessage(result.message);
+        } catch (err) {
+            setResendMessage(err.message || 'Unable to resend verification email.');
         }
     };
 
@@ -60,11 +65,12 @@ export default function LoginPage() {
 
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div>
-                        <label className="block text-xs font-semibold text-slate-300 mb-1">Email Address</label>
+                        <label htmlFor="login-email" className="block text-xs font-semibold text-slate-300 mb-1">Email Address</label>
                         <div className="relative">
                             <Mail className="w-4 h-4 text-slate-500 absolute left-3 top-3" />
                             <input
                                 type="email"
+                                id="login-email"
                                 required
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
@@ -75,11 +81,12 @@ export default function LoginPage() {
                     </div>
 
                     <div>
-                        <label className="block text-xs font-semibold text-slate-300 mb-1">Password</label>
+                        <label htmlFor="login-password" className="block text-xs font-semibold text-slate-300 mb-1">Password</label>
                         <div className="relative">
                             <Lock className="w-4 h-4 text-slate-500 absolute left-3 top-3" />
                             <input
                                 type="password"
+                                id="login-password"
                                 required
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
@@ -98,36 +105,14 @@ export default function LoginPage() {
                     </button>
                 </form>
 
-                {/* Quick Demo Credentials Buttons */}
-                <div className="mt-6 pt-6 border-t border-slate-800">
-                    <p className="text-[11px] font-mono text-slate-400 text-center mb-3 uppercase tracking-wider">Quick Demo Login</p>
-                    <div className="grid grid-cols-2 gap-3">
-                        <button
-                            type="button"
-                            onClick={() => setDemoUser('user')}
-                            className="flex items-center justify-center gap-1.5 p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium border border-slate-700 transition"
-                        >
-                            <UserCheck className="w-3.5 h-3.5 text-cyan-400" />
-                            <span>Student Demo</span>
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => setDemoUser('admin')}
-                            className="flex items-center justify-center gap-1.5 p-2 rounded-lg bg-amber-950/40 hover:bg-amber-900/50 text-amber-300 text-xs font-medium border border-amber-800/60 transition"
-                        >
-                            <Shield className="w-3.5 h-3.5 text-amber-400" />
-                            <span>Admin Demo</span>
-                        </button>
+                {verificationNotice && (
+                    <div className="mt-4 space-y-2">
+                        <button type="button" onClick={resendVerification} className="text-sm text-cyan-300 underline">Resend verification email</button>
+                        {resendMessage && <p role="status" className="text-xs text-slate-300">{resendMessage}</p>}
                     </div>
-
-                    <div className="mt-4 space-y-2 rounded-xl border border-slate-800 bg-slate-950/60 p-3 text-[11px] text-slate-300">
-                        <div>
-                            <span className="font-semibold text-cyan-400">Student demo:</span> student@cyberloy.com / password123
-                        </div>
-                        <div>
-                            <span className="font-semibold text-amber-400">Admin demo:</span> admin@cyberloy.com / password123
-                        </div>
-                    </div>
+                )}
+                <div className="mt-5 text-center">
+                    <Link to="/reset-password" className="text-sm text-cyan-300 hover:underline">Forgot your password?</Link>
                 </div>
             </div>
         </div>

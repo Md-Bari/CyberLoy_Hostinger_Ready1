@@ -53,6 +53,14 @@ export default function PortalSidebar({ activeTab, setActiveTab }) {
                     badge: 'GRC',
                     description: 'Project plans, tasks & assignments',
                 },
+                {
+                    id: 'emergency-support',
+                    label: 'Emergency Support',
+                    icon: ShieldAlert,
+                    path: '/admin/emergency-support',
+                    badge: '24/7',
+                    description: 'Review and manage incident requests',
+                },
             ],
         },
         {
@@ -144,7 +152,21 @@ export default function PortalSidebar({ activeTab, setActiveTab }) {
         },
     ];
 
-    const navSections = isAdminUser ? adminNavSections : studentNavSections;
+    const instructorNavSections = [
+        {
+            title: 'TEACHING',
+            items: [
+                { id: 'reviews', label: 'Assessment Reviews', icon: FileText, path: '/instructor/reviews', description: 'Grade learner work and provide feedback' },
+                { id: 'courses', label: 'Course Catalog', icon: BookOpen, path: '/courses', description: 'View learning courses' },
+            ],
+        },
+    ];
+
+    const navSections = isAdminUser
+        ? adminNavSections
+        : user?.role === 'instructor'
+            ? instructorNavSections
+            : studentNavSections;
 
     const handleLogout = () => {
         logout();
@@ -152,7 +174,7 @@ export default function PortalSidebar({ activeTab, setActiveTab }) {
     };
 
     return (
-        <aside className="w-72 shrink-0 bg-[#07172d] border-r border-slate-800 min-h-screen flex flex-col text-slate-100 select-none shadow-2xl z-30">
+        <aside className="sticky top-16 self-start h-[calc(100vh-4rem)] w-72 shrink-0 bg-[#07172d] border-r border-slate-800 flex flex-col text-slate-100 select-none shadow-2xl z-30">
             {/* Header Brand */}
             <div className="px-5 py-5 border-b border-slate-800 bg-[#081b35]">
                 <Link to={isAdminUser ? '/admin' : '/courses'} className="flex items-center gap-3 group">
@@ -167,7 +189,7 @@ export default function PortalSidebar({ activeTab, setActiveTab }) {
                             </span>
                         </div>
                         <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-cyan-400/80">
-                            {isAdminUser ? 'Admin Portal' : 'Student Workspace'}
+                            {isAdminUser ? 'Admin Portal' : user?.role === 'instructor' ? 'Instructor Workspace' : 'Student Workspace'}
                         </div>
                     </div>
                 </Link>
@@ -256,7 +278,7 @@ export default function PortalSidebar({ activeTab, setActiveTab }) {
                         <div className="truncate text-left">
                             <div className="text-xs font-bold text-slate-200 truncate">{user?.name || 'User'}</div>
                             <div className="text-[10px] font-mono uppercase text-cyan-400">
-                                {isAdminUser ? 'Administrator' : 'Student'}
+                                {isAdminUser ? 'Administrator' : user?.role === 'instructor' ? 'Instructor' : 'Student'}
                             </div>
                         </div>
                     </div>

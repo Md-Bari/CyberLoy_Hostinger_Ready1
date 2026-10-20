@@ -10,6 +10,8 @@ use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\AdminController;
 use App\Http\Controllers\Api\ProjectTaskController;
 use App\Http\Controllers\Api\EmergencySupportController;
+use App\Http\Controllers\Api\CourseDiscussionController;
+use App\Http\Controllers\Api\InstructorController;
 
 /*
 |--------------------------------------------------------------------------
@@ -18,10 +20,20 @@ use App\Http\Controllers\Api\EmergencySupportController;
 */
 
 // Public Authentication & Course Catalog
-Route::post('/login', [AuthController::class, 'login']);
-Route::post('/refresh', [AuthController::class, 'refresh']);
+Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:10,1');
+Route::post('/refresh', [AuthController::class, 'refresh'])->middleware('throttle:10,1');
+Route::post('/password/forgot', [AuthController::class, 'sendPasswordResetLink'])->middleware('throttle:6,1');
+Route::post('/password/reset', [AuthController::class, 'resetPassword'])->middleware('throttle:6,1');
+Route::post('/email/verification-notification', [AuthController::class, 'resendVerification'])->middleware('throttle:6,1');
+Route::get('/email/verify/{id}/{hash}', [AuthController::class, 'verifyEmail'])
+    ->middleware('signed')
+    ->name('verification.verify');
 Route::get('/courses', [CourseController::class, 'index']);
 Route::get('/courses/{id}', [CourseController::class, 'show']);
+
+// Public emergency incident reporting. Admins review submissions from the
+// protected emergency-support management endpoints below.
+Route::post('/emergency-support', [EmergencySupportController::class, 'submit']);
 
 // Public Certificate Verification Endpoint
 Route::get('/certificates/verify/{code}', [CertificateController::class, 'verify']);
@@ -40,11 +52,19 @@ Route::middleware('auth:api')->group(function () {
     // Course Enrollment & Payment
     Route::post('/courses/{id}/enroll', [CourseController::class, 'enroll']);
     Route::post('/courses/{id}/pay', [CourseController::class, 'pay']);
+    Route::get('/courses/{courseId}/discussions', [CourseDiscussionController::class, 'index']);
+    Route::post('/courses/{courseId}/discussions', [CourseDiscussionController::class, 'store']);
+    Route::get('/payments/checkout/{sessionId}', [CourseController::class, 'checkoutStatus']);
 
     // Learning Classroom & Video Playback Tracking
     Route::get('/learn/{courseId}/{lessonId}', [CourseController::class, 'getLesson']);
     Route::post('/learn/{courseId}/{lessonId}/assessment-submit', [CourseController::class, 'submitAssessment']);
     Route::post('/video-progress', [VideoProgressController::class, 'recordProgress']);
+
+    Route::middleware('instructor')->prefix('instructor')->group(function () {
+        Route::get('/assessment-submissions', [InstructorController::class, 'submissions']);
+        Route::put('/assessment-submissions/{submissionId}', [InstructorController::class, 'grade']);
+    });
 
     // Student Project & Task Management
     Route::get('/project-plans', [ProjectTaskController::class, 'indexStudent']);
@@ -99,5 +119,7 @@ Route::middleware('auth:api')->group(function () {
         Route::get('/admin/emergency-support', [EmergencySupportController::class, 'index']);
         Route::put('/admin/emergency-support/{id}/status', [EmergencySupportController::class, 'updateStatus']);
     });
+
 });
 
+Route::post('/stripe/webhook', [CourseController::class, 'stripeWebhook']);

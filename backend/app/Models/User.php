@@ -4,12 +4,16 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Auth\MustVerifyEmail as MustVerifyEmailTrait;
+use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Notifications\Notifiable;
+use App\Notifications\ResetPasswordNotification;
+use App\Notifications\VerifyEmailNotification;
 use Tymon\JWTAuth\Contracts\JWTSubject;
 
-class User extends Authenticatable implements JWTSubject
+class User extends Authenticatable implements JWTSubject, MustVerifyEmail
 {
-    use HasFactory, Notifiable;
+    use HasFactory, Notifiable, MustVerifyEmailTrait;
 
     protected $fillable = [
         'name',
@@ -27,7 +31,23 @@ class User extends Authenticatable implements JWTSubject
     {
         return [
             'password' => 'hashed',
+            'email_verified_at' => 'datetime',
         ];
+    }
+
+    public function isInstructor(): bool
+    {
+        return $this->role === 'instructor';
+    }
+
+    public function sendPasswordResetNotification($token): void
+    {
+        $this->notify(new ResetPasswordNotification($token));
+    }
+
+    public function sendEmailVerificationNotification(): void
+    {
+        $this->notify(new VerifyEmailNotification());
     }
 
     // ─── JWTSubject interface ───────────────────────────────────────────────
@@ -54,6 +74,11 @@ class User extends Authenticatable implements JWTSubject
         return $this->hasMany(Enrollment::class);
     }
 
+    public function instructedCourses()
+    {
+        return $this->hasMany(Course::class, 'instructor_id');
+    }
+
     public function taskCompletions()
     {
         return $this->hasMany(TaskCompletion::class);
@@ -74,4 +99,3 @@ class User extends Authenticatable implements JWTSubject
         return $this->belongsToMany(ProjectPlan::class, 'project_assignments', 'user_id', 'project_plan_id');
     }
 }
-

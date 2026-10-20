@@ -21,6 +21,7 @@ class Payment extends Model
         'payer_email',
         'card_last_four',
         'paid_at',
+        'checkout_session_id',
     ];
 
     protected $casts = [

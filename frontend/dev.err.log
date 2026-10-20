@@ -1,0 +1,9 @@
+[2m3:24:30 PM[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/user[39m
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:2017:16)
+[2m3:24:30 PM[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/courses[39m
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:2017:16)
+[2m3:24:30 PM[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/refresh[39m
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:2017:16)

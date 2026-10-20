@@ -11,6 +11,7 @@ class Course extends Model
 
     protected $fillable = [
         'title',
+        'instructor_id',
         'slug',
         'description',
         'price',
@@ -61,5 +62,10 @@ class Course extends Model
     public function payments()
     {
         return $this->hasMany(Payment::class);
+    }
+
+    public function instructor()
+    {
+        return $this->belongsTo(User::class, 'instructor_id');
     }
 }

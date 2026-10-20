@@ -147,6 +147,12 @@ export default function LearnCoursePage() {
     const assessmentQuestions = Array.isArray(lesson.assessment_config)
         ? lesson.assessment_config
         : (Array.isArray(lesson.assessment_config?.questions) ? lesson.assessment_config.questions : []);
+    const assessmentMaxAttempts = Number(lesson.assessment_config?.max_attempts || 3);
+    const attemptsUsed = Number(lesson.assessment_attempts_used || 0);
+    const submission = lesson.assessment_submission;
+    const assessmentLocked = submission?.passed
+        || submission?.status === 'submitted'
+        || attemptsUsed >= assessmentMaxAttempts;
 
     return (
         <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
@@ -302,36 +308,41 @@ export default function LearnCoursePage() {
                                         <FileText className="w-4 h-4" /> Assessment
                                     </div>
 
-                                    {lesson.assessment_submission ? (
-                                        <div className="space-y-2 text-xs text-slate-300">
-                                            <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-emerald-950 border border-emerald-500/70 text-emerald-300 font-semibold">
-                                                <CheckCircle2 className="w-3.5 h-3.5" />
-                                                Submitted
+                                    {submission && (
+                                        <div role="status" className="space-y-2 text-xs text-slate-300">
+                                            <div className={`inline-flex items-center gap-2 px-2.5 py-1 rounded-full border font-semibold ${
+                                                submission.passed
+                                                    ? 'bg-emerald-950 border-emerald-500/70 text-emerald-300'
+                                                    : submission.status === 'submitted'
+                                                        ? 'bg-amber-950 border-amber-500/70 text-amber-200'
+                                                        : 'bg-red-950 border-red-500/70 text-red-200'
+                                            }`}>
+                                                {submission.passed ? 'Passed' : submission.status === 'submitted' ? 'Waiting for instructor review' : 'Not passed'}
                                             </div>
-                                            {lesson.assessment_submission.score !== null && lesson.assessment_submission.score !== undefined && (
-                                                <p className="text-slate-400">Score: {lesson.assessment_submission.score}</p>
-                                            )}
-                                            {lesson.assessment_submission.teacher_notes && (
-                                                <p className="text-slate-400">Instructor feedback: {lesson.assessment_submission.teacher_notes}</p>
-                                            )}
+                                            <p className="text-slate-400">Attempt {submission.attempt_number} of {assessmentMaxAttempts}</p>
+                                            {submission.score !== null && submission.score !== undefined && <p className="text-slate-400">Score: {submission.score}%</p>}
+                                            {submission.teacher_notes && <p className="text-slate-400">Instructor feedback: {submission.teacher_notes}</p>}
                                         </div>
-                                    ) : (
+                                    )}
+                                    {!assessmentLocked && (
                                         <div className="space-y-4">
+                                            {submission && <p className="text-xs text-amber-200">You may submit another attempt.</p>}
                                             {assessmentQuestions.length === 0 ? (
                                                 <p className="text-xs text-slate-400">No assessment questions are configured yet for this lesson.</p>
                                             ) : (
                                                 assessmentQuestions.map((question, index) => (
                                                     <div key={index} className="space-y-2 p-3 rounded-xl bg-slate-900 border border-slate-800">
-                                                        <label className="text-xs font-semibold text-slate-200">
+                                                        <p id={`assessment-question-${index}`} className="text-xs font-semibold text-slate-200">
                                                             {index + 1}. {question.question || question.text || `Question ${index + 1}`}
-                                                        </label>
+                                                        </p>
 
                                                         {lesson.assessment_type === 'mcq' ? (
-                                                            <div className="space-y-2">
+                                                            <div role="radiogroup" aria-labelledby={`assessment-question-${index}`} className="space-y-2">
                                                                 {(question.options || []).map((option, optionIndex) => (
                                                                     <label key={optionIndex} className="flex items-center gap-2 text-xs text-slate-300">
                                                                         <input
                                                                             type="radio"
+                                                                            aria-label={`${question.question || question.text || `Question ${index + 1}`}: ${option}`}
                                                                             name={`question-${index}`}
                                                                             checked={assessmentAnswers[index] === option}
                                                                             onChange={() => {
@@ -349,6 +360,7 @@ export default function LearnCoursePage() {
                                                             </div>
                                                         ) : (
                                                             <textarea
+                                                                aria-labelledby={`assessment-question-${index}`}
                                                                 rows="3"
                                                                 value={assessmentAnswers[index] || ''}
                                                                 onChange={(e) => {

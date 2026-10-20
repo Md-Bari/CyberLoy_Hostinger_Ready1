@@ -15,6 +15,7 @@ use App\Models\Payment;
 use App\Models\Certificate;
 use App\Models\Notification;
 use App\Models\AuditLog;
+use App\Services\CourseCompletionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
@@ -340,10 +341,16 @@ class AdminController extends Controller
             'price' => 'nullable|numeric|min:0',
             'progression_mode' => 'nullable|in:sequential,open',
             'status' => 'nullable|in:draft,published,unpublished,archived',
+            'instructor_id' => 'nullable|exists:users,id',
         ]);
+
+        if ($request->filled('instructor_id') && User::whereKey($request->instructor_id)->where('role', 'instructor')->doesntExist()) {
+            return response()->json(['message' => 'The selected user is not an instructor.'], 422);
+        }
 
         $course = Course::create([
             'title' => $request->title,
+            'instructor_id' => $request->instructor_id,
             'slug' => Str::slug($request->title) . '-' . rand(100, 999),
             'description' => $request->description,
             'level' => $request->level ?? 'Beginner',
@@ -366,9 +373,15 @@ class AdminController extends Controller
     {
         $course = Course::findOrFail($id);
 
+        $request->validate(['instructor_id' => 'nullable|exists:users,id']);
+        if ($request->filled('instructor_id') && User::whereKey($request->instructor_id)->where('role', 'instructor')->doesntExist()) {
+            return response()->json(['message' => 'The selected user is not an instructor.'], 422);
+        }
+
         $course->update($request->only([
             'title', 'description', 'level', 'category', 'duration',
-            'price', 'progression_mode', 'status', 'prerequisites', 'learning_objectives'
+            'price', 'progression_mode', 'status', 'prerequisites', 'learning_objectives',
+            'instructor_id',
         ]));
 
         if ($request->has('status')) {
@@ -480,6 +493,8 @@ class AdminController extends Controller
             'duration_seconds' => 'nullable|integer',
         ]);
 
+        $assessmentChanged = ($request->has('assessment_type') && $request->assessment_type !== $lesson->assessment_type)
+            || ($request->has('assessment_config') && ($request->assessment_config ?? []) !== ($lesson->assessment_config ?? []));
         $data = $request->only(['title', 'description', 'content', 'duration_seconds', 'sort_order', 'is_required', 'required_watch_percentage', 'pdf_url', 'assessment_type']);
 
         if ($request->has('youtube_url')) {
@@ -492,6 +507,14 @@ class AdminController extends Controller
         }
 
         $lesson->update($data);
+        if ($assessmentChanged) {
+            LessonAssessmentSubmission::where('lesson_id', $lesson->id)->delete();
+            LessonProgress::where('lesson_id', $lesson->id)
+                ->update(['status' => 'in_progress', 'completed_at' => null]);
+            $course = $lesson->section->course;
+            Enrollment::with('user')->where('course_id', $course->id)->get()
+                ->each(fn (Enrollment $enrollment) => CourseCompletionService::refresh($course, $enrollment->user));
+        }
 
         return response()->json($lesson);
     }

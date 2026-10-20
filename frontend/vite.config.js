@@ -384,7 +384,9 @@ export default defineConfig({
 		allowedHosts: true,
 		proxy: {
 			'/api': {
-				target: 'http://127.0.0.1:8000',
+				// Docker Desktop occupies ports 8000 and 8001 on this machine.
+				// Keep Laravel on 8010; LAN clients only need the Vite port below.
+				target: 'http://127.0.0.1:8010',
 				changeOrigin: true,
 				secure: false,
 			},

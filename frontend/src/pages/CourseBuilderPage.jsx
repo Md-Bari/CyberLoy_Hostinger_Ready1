@@ -9,6 +9,7 @@ import {
 export default function CourseBuilderPage() {
     const navigate = useNavigate();
     const [courses, setCourses] = useState([]);
+    const [instructors, setInstructors] = useState([]);
     const [loading, setLoading] = useState(true);
     const [message, setMessage] = useState('');
     const [selectedCourse, setSelectedCourse] = useState(null);
@@ -29,6 +30,7 @@ export default function CourseBuilderPage() {
         price: '49.00',
         progression_mode: 'sequential',
         status: 'published',
+        instructor_id: '',
     });
     const [savingCourse, setSavingCourse] = useState(false);
 
@@ -57,6 +59,7 @@ export default function CourseBuilderPage() {
     const [newCategory, setNewCategory] = useState('Cybersecurity');
     const [newDuration, setNewDuration] = useState('4 Weeks');
     const [newPrice, setNewPrice] = useState('49.00');
+    const [newInstructorId, setNewInstructorId] = useState('');
     const [newProgressionMode, setNewProgressionMode] = useState('sequential');
     const [creatingCourse, setCreatingCourse] = useState(false);
 
@@ -85,6 +88,15 @@ export default function CourseBuilderPage() {
         }
     };
 
+    const loadInstructors = async () => {
+        try {
+            const result = await api.getAdminUsersList();
+            setInstructors((result.users || []).filter((user) => user.role === 'instructor'));
+        } catch (error) {
+            setMessage(error.message || 'Unable to load instructors.');
+        }
+    };
+
     const handleSelectCourse = async (courseId) => {
         try {
             const fullDetails = await api.getCourseDetails(courseId);
@@ -109,6 +121,7 @@ export default function CourseBuilderPage() {
                 price: parseFloat(newPrice) || 0,
                 progression_mode: newProgressionMode,
                 status: 'published',
+                instructor_id: newInstructorId || null,
             });
 
             setMessage(`Course "${newTitle}" created successfully!`);
@@ -116,10 +129,11 @@ export default function CourseBuilderPage() {
             setNewTitle('');
             setNewDescription('');
             setNewPrice('49.00');
+            setNewInstructorId('');
 
             await loadCourses();
-            if (res?.course?.id) {
-                handleSelectCourse(res.course.id);
+            if (res?.id) {
+                handleSelectCourse(res.id);
             }
         } catch (e) {
             alert(e.message || 'Failed to create course');
@@ -129,6 +143,7 @@ export default function CourseBuilderPage() {
     };
 
     const openEditCourseModal = (course) => {
+        loadInstructors();
         setEditingCourseModal(course);
         setEditCourseForm({
             title: course.title,
@@ -139,6 +154,7 @@ export default function CourseBuilderPage() {
             price: String(course.price || 49.00),
             progression_mode: course.progression_mode || 'sequential',
             status: course.status || 'published',
+            instructor_id: course.instructor_id ? String(course.instructor_id) : '',
         });
     };
 
@@ -156,6 +172,7 @@ export default function CourseBuilderPage() {
                 price: parseFloat(editCourseForm.price) || 0,
                 progression_mode: editCourseForm.progression_mode,
                 status: editCourseForm.status,
+                instructor_id: editCourseForm.instructor_id || null,
             });
             setEditingCourseModal(null);
             setMessage('Course settings updated successfully!');
@@ -371,7 +388,7 @@ export default function CourseBuilderPage() {
 
                     <div className="flex flex-wrap gap-3 shrink-0">
                         <button
-                            onClick={() => setShowNewCourseModal(true)}
+                            onClick={() => { loadInstructors(); setShowNewCourseModal(true); }}
                             className="px-4 py-2.5 rounded-xl bg-[#0f172a] hover:bg-[#1e293b] text-white font-bold text-xs flex items-center gap-2 transition shadow-sm"
                         >
                             <Plus className="w-4 h-4 text-cyan-400" />
@@ -403,7 +420,7 @@ export default function CourseBuilderPage() {
                             <span>Select Course to Edit</span>
                         </h3>
                         <button
-                            onClick={() => setShowNewCourseModal(true)}
+                            onClick={() => { loadInstructors(); setShowNewCourseModal(true); }}
                             className="text-xs text-blue-600 font-bold hover:underline flex items-center gap-1"
                         >
                             <Plus className="w-3.5 h-3.5" /> New Course
@@ -718,6 +735,13 @@ export default function CourseBuilderPage() {
                                     />
                                 </div>
                             </div>
+                            <div>
+                                <label htmlFor="new-course-instructor" className="text-xs font-semibold text-slate-700 block mb-1">Assigned instructor</label>
+                                <select id="new-course-instructor" value={newInstructorId} onChange={(e) => setNewInstructorId(e.target.value)} className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800">
+                                    <option value="">No instructor assigned</option>
+                                    {instructors.map((instructor) => <option key={instructor.id} value={instructor.id}>{instructor.name} ({instructor.email})</option>)}
+                                </select>
+                            </div>
 
                             <div className="pt-3 flex justify-end gap-2 border-t border-slate-100">
                                 <button
@@ -779,6 +803,14 @@ export default function CourseBuilderPage() {
                                     onChange={(e) => setEditCourseForm({ ...editCourseForm, description: e.target.value })}
                                     className="w-full bg-white border border-slate-200 rounded-xl p-3 text-xs text-slate-800 focus:outline-none focus:border-blue-500 shadow-sm"
                                 />
+                            </div>
+
+                            <div>
+                                <label htmlFor="edit-course-instructor" className="text-xs font-semibold text-slate-700 block mb-1">Assigned instructor</label>
+                                <select id="edit-course-instructor" value={editCourseForm.instructor_id} onChange={(e) => setEditCourseForm({ ...editCourseForm, instructor_id: e.target.value })} className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800">
+                                    <option value="">No instructor assigned</option>
+                                    {instructors.map((instructor) => <option key={instructor.id} value={instructor.id}>{instructor.name} ({instructor.email})</option>)}
+                                </select>
                             </div>
 
                             <div className="grid grid-cols-2 gap-3">
@@ -1018,7 +1050,7 @@ export default function CourseBuilderPage() {
                                     <label className="text-xs font-semibold text-slate-700 block mb-1">Assessment Config (JSON)</label>
                                     <input
                                         type="text"
-                                        placeholder='{"questions":[{"question":"...","options":[]}]}'
+                                        placeholder='{"passing_score":70,"max_attempts":3,"questions":[{"question":"...","options":["A","B"],"correct_answer":"A"}]}'
                                         value={newLessonAssessmentConfig}
                                         onChange={(e) => setNewLessonAssessmentConfig(e.target.value)}
                                         className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-blue-500 shadow-sm"

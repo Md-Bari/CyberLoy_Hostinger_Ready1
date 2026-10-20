@@ -4,11 +4,11 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Lesson;
+use App\Models\LessonAssessmentSubmission;
 use App\Models\LessonProgress;
 use App\Models\VideoWatchProgress;
 use App\Models\Enrollment;
-use App\Models\Notification;
-use App\Models\User;
+use App\Services\CourseCompletionService;
 use Illuminate\Http\Request;
 
 class VideoProgressController extends Controller
@@ -44,12 +44,42 @@ class VideoProgressController extends Controller
             ->where('course_id', $course->id)
             ->first();
 
-        if ($user->role !== 'admin') {
+        $isCourseInstructor = $user->role === 'instructor'
+            && (int) $course->instructor_id === (int) $user->id;
+        if ($course->status !== 'published' && $user->role !== 'admin' && !$isCourseInstructor) {
+            abort(404);
+        }
+
+        if ($user->role !== 'admin' && !$isCourseInstructor) {
             if (!$enrollment || ($course->requires_payment && $enrollment->payment_status !== 'paid')) {
                 return response()->json([
                     'message' => 'Course is locked. Please complete enrollment and payment to record learning progress.',
                     'locked'  => true,
                 ], 403);
+            }
+        }
+
+        if ($course->progression_mode === 'sequential' && $user->role !== 'admin' && !$isCourseInstructor) {
+            $orderedLessons = $course->sections()
+                ->with(['lessons' => fn ($query) => $query->orderBy('sort_order')])
+                ->orderBy('sort_order')
+                ->get()
+                ->flatMap(fn ($courseSection) => $courseSection->lessons)
+                ->values();
+            $currentIndex = $orderedLessons->search(fn ($item) => (int) $item->id === (int) $lesson->id);
+            if ($currentIndex === false) {
+                abort(404);
+            }
+            if ($currentIndex > 0) {
+                $previousLesson = $orderedLessons[$currentIndex - 1];
+                $previousCompleted = LessonProgress::where('user_id', $user->id)
+                    ->where('course_id', $course->id)
+                    ->where('lesson_id', $previousLesson->id)
+                    ->where('status', 'completed')
+                    ->exists();
+                if (!$previousCompleted) {
+                    return response()->json(['message' => 'Complete the previous lesson before recording progress.'], 403);
+                }
             }
         }
 
@@ -138,8 +168,14 @@ class VideoProgressController extends Controller
             ]
         );
 
-        $wasAlreadyCompleted = ($lessonProgress->status === 'completed');
-        $newStatus = $isCompleted ? 'completed' : 'in_progress';
+        $assessmentPassed = $lesson->assessment_type === 'none'
+            || LessonAssessmentSubmission::where('user_id', $user->id)
+                ->where('lesson_id', $lesson->id)
+                ->where('passed', true)
+                ->exists();
+        $lessonCompleted = ($isCompleted || $videoWatch->completed) && $assessmentPassed;
+        $wasAlreadyCompleted = ($lessonProgress->status === 'completed') && $assessmentPassed;
+        $newStatus = $lessonCompleted ? 'completed' : 'in_progress';
 
         $lessonProgress->update([
             'course_id'           => $course->id,
@@ -147,25 +183,17 @@ class VideoProgressController extends Controller
             'status'              => ($wasAlreadyCompleted ? 'completed' : $newStatus),
             'progress_percentage' => max($lessonProgress->progress_percentage, $watchPercentage),
             'watched_seconds'     => $videoWatch->watched_seconds,
-            'completed_at'        => ($isCompleted && !$lessonProgress->completed_at) ? now() : $lessonProgress->completed_at,
+            'completed_at'        => ($lessonCompleted && !$lessonProgress->completed_at) ? now() : $lessonProgress->completed_at,
             'last_accessed_at'    => now(),
         ]);
 
         // ─── Recalculate Course Total Progress ────────────────────────────────
-        $allLessons           = $course->lessons()->get();
-        $totalRequiredLessons = $allLessons->where('is_required', true)->count();
-        if ($totalRequiredLessons === 0) $totalRequiredLessons = $allLessons->count();
-
         $completedLessonIds = LessonProgress::where('user_id', $user->id)
             ->where('course_id', $course->id)
             ->where('status', 'completed')
             ->pluck('lesson_id')
             ->toArray();
-
-        $completedCount           = count(array_intersect($allLessons->pluck('id')->toArray(), $completedLessonIds));
-        $courseProgressPercentage = $totalRequiredLessons > 0
-            ? (int) round(($completedCount / $totalRequiredLessons) * 100)
-            : 0;
+        $courseProgress = CourseCompletionService::refresh($course, $user);
 
         // ─── Recalculate Section Progress ─────────────────────────────────────
         $sectionLessons           = $section->lessons()->pluck('id')->toArray();
@@ -173,31 +201,6 @@ class VideoProgressController extends Controller
         $sectionProgressPercentage = count($sectionLessons) > 0
             ? (int) round(($sectionCompleted / count($sectionLessons)) * 100)
             : 0;
-
-        $isCourseFullyCompleted = ($courseProgressPercentage >= 100 && $completedCount >= $totalRequiredLessons);
-
-        // ─── Course completion notifications ──────────────────────────────────
-        if ($enrollment && $isCourseFullyCompleted && $enrollment->status !== 'completed') {
-            $enrollment->update(['status' => 'completed', 'completed_at' => now()]);
-
-            foreach (User::where('role', 'admin')->get() as $admin) {
-                Notification::create([
-                    'user_id' => $admin->id,
-                    'title'   => 'Student Completed Course: ' . $user->name,
-                    'message' => "Student {$user->name} ({$user->email}) has completed 100% of '{$course->title}'. Certificate issuance is now pending.",
-                    'type'    => 'course_completed',
-                    'is_read' => false,
-                ]);
-            }
-
-            Notification::create([
-                'user_id' => $user->id,
-                'title'   => 'Course Completed: ' . $course->title,
-                'message' => "Congratulations {$user->name}! You have successfully completed '{$course->title}'. Your completion certificate is now being processed.",
-                'type'    => 'course_completed',
-                'is_read' => false,
-            ]);
-        }
 
         return response()->json([
             'lesson_id'                  => $lesson->id,
@@ -207,10 +210,10 @@ class VideoProgressController extends Controller
             'required_seconds'           => $effectiveDuration,
             'section_id'                 => $section->id,
             'section_progress_percentage'=> $sectionProgressPercentage,
-            'course_progress_percentage' => $courseProgressPercentage,
-            'completed_lessons'          => $completedCount,
-            'total_lessons'              => $totalRequiredLessons,
-            'is_course_completed'        => $isCourseFullyCompleted,
+            'course_progress_percentage' => $courseProgress['progress_percentage'],
+            'completed_lessons'          => $courseProgress['completed_lessons'],
+            'total_lessons'              => $courseProgress['total_lessons'],
+            'is_course_completed'        => $courseProgress['is_complete'],
         ]);
     }
 }

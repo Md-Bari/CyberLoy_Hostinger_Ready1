@@ -4,7 +4,7 @@ import { api } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import {
     BookOpen, CheckCircle2, Lock, Unlock, Play, ArrowLeft, ArrowRight,
-    ShieldCheck, Sparkles, CreditCard, Clock, BarChart2, Award, FileText
+    ShieldCheck, Sparkles, CreditCard, Clock, BarChart2, Award, FileText, MessageSquare
 } from 'lucide-react';
 import PaymentModal from '../components/PaymentModal';
 
@@ -19,6 +19,39 @@ export default function CourseDetailPage() {
 
     useEffect(() => {
         fetchCourseDetails();
+    }, [id]);
+
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        const checkout = params.get('checkout');
+        const sessionId = params.get('session_id');
+        if (checkout === 'cancelled') {
+            setStatusMessage('Checkout was cancelled. No payment was completed.');
+            window.history.replaceState({}, '', window.location.pathname);
+            return undefined;
+        }
+        if (checkout !== 'success' || !sessionId) return undefined;
+
+        let active = true;
+        const confirmPayment = async () => {
+            try {
+                for (let attempt = 0; attempt < 6 && active; attempt++) {
+                    const result = await api.confirmCheckout(sessionId);
+                    if (result.status === 'completed') {
+                        setStatusMessage('Payment confirmed. Your course is now unlocked.');
+                        await fetchCourseDetails();
+                        window.history.replaceState({}, '', window.location.pathname);
+                        return;
+                    }
+                    await new Promise((resolve) => setTimeout(resolve, 2000));
+                }
+                if (active) setStatusMessage('Payment is still processing. Refresh this page shortly to check course access.');
+            } catch (error) {
+                if (active) setStatusMessage(error.message || 'Unable to confirm payment with Stripe.');
+            }
+        };
+        confirmPayment();
+        return () => { active = false; };
     }, [id]);
 
     const fetchCourseDetails = async () => {
@@ -40,21 +73,21 @@ export default function CourseDetailPage() {
         setShowPaymentModal(true);
     };
 
-    const handlePaymentSuccess = async (res) => {
-        setShowPaymentModal(false);
-        setCourse((prev) => prev ? {
-            ...prev,
-            is_unlocked: true,
-            is_enrolled: true,
-            payment_status: 'paid',
-        } : prev);
-        setStatusMessage('🎉 Payment confirmed! Course successfully unlocked — you can now begin all lessons.');
-        try {
-            await fetchCourseDetails();
-        } catch (e) {
-            console.error('Background refresh error:', e);
+    const handleStartLearning = async () => {
+        if (!user) {
+            navigate('/login');
+            return;
         }
-        setTimeout(() => setStatusMessage(''), 6000);
+        if (!course.is_enrolled && ['user', 'student'].includes(user.role)) {
+            try {
+                await api.enrollCourse(course.id);
+                await fetchCourseDetails();
+            } catch (error) {
+                setStatusMessage(error.message || 'Unable to enroll in this course.');
+                return;
+            }
+        }
+        navigate(`/learn/${course.id}/${firstLessonId}`);
     };
 
     if (loading) {
@@ -83,7 +116,7 @@ export default function CourseDetailPage() {
             </Link>
 
             {statusMessage && (
-                <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold flex items-center gap-3 shadow-sm animate-in fade-in">
+                <div role="status" className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold flex items-center gap-3 shadow-sm animate-in fade-in">
                     <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
                     <span>{statusMessage}</span>
                 </div>
@@ -143,14 +176,15 @@ export default function CourseDetailPage() {
                                 </div>
 
                                 {firstLessonId && (
-                                    <Link
-                                        to={`/learn/${course.id}/${firstLessonId}`}
+                                    <button
+                                        type="button"
+                                        onClick={handleStartLearning}
                                         className="w-full py-3 px-4 rounded-xl bg-[#0f172a] hover:bg-[#1e293b] text-white font-bold text-xs transition shadow-sm flex items-center justify-center gap-2 group"
                                     >
                                         <Play className="w-4 h-4 fill-white" />
                                         <span>{course.progress_percentage > 0 ? 'Continue Learning' : 'Start Course Now'}</span>
                                         <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                                    </Link>
+                                    </button>
                                 )}
 
                                 {course.progress_percentage >= 100 && (
@@ -160,6 +194,11 @@ export default function CourseDetailPage() {
                                     >
                                         <Award className="w-4 h-4 text-amber-600" />
                                         <span>View Verified Certificate</span>
+                                    </Link>
+                                )}
+                                {(course.is_enrolled || ['admin', 'instructor'].includes(user?.role)) && (
+                                    <Link to={`/courses/${course.id}/discussions`} className="flex w-full items-center justify-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2.5 text-xs font-bold text-blue-800 hover:bg-blue-100">
+                                        <MessageSquare className="h-4 w-4" /> Course discussion
                                     </Link>
                                 )}
                             </div>
@@ -304,7 +343,6 @@ export default function CourseDetailPage() {
                 course={course}
                 isOpen={showPaymentModal}
                 onClose={() => setShowPaymentModal(false)}
-                onSuccess={handlePaymentSuccess}
             />
         </div>
     );

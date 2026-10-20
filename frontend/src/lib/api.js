@@ -1,22 +1,13 @@
 export const getApiBaseUrl = () => {
-    if (typeof window !== 'undefined') {
-        const hostname = window.location.hostname;
-        if (hostname === 'localhost' || hostname === '127.0.0.1') {
-            return '/api';
-        }
-
-        if (import.meta.env?.VITE_API_URL) {
-            return import.meta.env.VITE_API_URL.replace(/\/+$/, '');
-        }
-
-        return `${window.location.origin.replace(/\/+$/, '')}/api`;
-    }
-
     if (import.meta.env?.VITE_API_URL) {
         return import.meta.env.VITE_API_URL.replace(/\/+$/, '');
     }
 
-    return 'http://127.0.0.1:8000/api';
+    if (typeof window !== 'undefined') {
+        return `${window.location.origin.replace(/\/+$/, '')}/api`;
+    }
+
+    return 'http://127.0.0.1:8010/api';
 };
 
 export const getFullApiUrl = (endpoint) => {
@@ -55,13 +46,11 @@ async function request(endpoint, options = {}) {
 
     const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
 
-    // Candidate URL bases to attempt in sequence
-    const candidateBases = [
-        getApiBaseUrl(),
-        'http://127.0.0.1:8000/api',
-        'http://localhost:8000/api',
-        '/api',
-    ];
+    // Keep API calls same-origin by default. In development Vite proxies /api
+    // to Laravel, so this also works from another device on the same network.
+    // Do not fall back to fixed localhost ports: from another PC, localhost
+    // means that PC, not the computer hosting the LMS.
+    const candidateBases = [getApiBaseUrl()];
     const uniqueBases = Array.from(new Set(candidateBases.filter(Boolean)));
 
     let lastError = null;
@@ -113,6 +102,18 @@ export const api = {
         }
         return res;
     },
+    requestPasswordReset: (email) => request('/password/forgot', {
+        method: 'POST',
+        body: JSON.stringify({ email }),
+    }),
+    resetPassword: (payload) => request('/password/reset', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+    }),
+    resendVerification: (email) => request('/email/verification-notification', {
+        method: 'POST',
+        body: JSON.stringify({ email }),
+    }),
     createUser: async (userData) => {
         return request('/admin/users', { method: 'POST', body: JSON.stringify(userData) });
     },
@@ -145,6 +146,17 @@ export const api = {
     getCourseDetails: (id) => request(`/courses/${id}`),
     enrollCourse: (courseId) => request(`/courses/${courseId}/enroll`, { method: 'POST' }),
     payCourse: (courseId, paymentData = {}) => request(`/courses/${courseId}/pay`, { method: 'POST', body: JSON.stringify(paymentData) }),
+    confirmCheckout: (sessionId) => request(`/payments/checkout/${encodeURIComponent(sessionId)}`),
+    getCourseDiscussions: (courseId) => request(`/courses/${courseId}/discussions`),
+    postCourseDiscussion: (courseId, body, parentId = null) => request(`/courses/${courseId}/discussions`, {
+        method: 'POST',
+        body: JSON.stringify({ body, parent_id: parentId }),
+    }),
+    getAssessmentSubmissions: () => request('/instructor/assessment-submissions'),
+    gradeAssessment: (submissionId, grade) => request(`/instructor/assessment-submissions/${submissionId}`, {
+        method: 'PUT',
+        body: JSON.stringify(grade),
+    }),
 
     // Classroom & Video Playback Tracking
     getLesson: (courseId, lessonId) => request(`/learn/${courseId}/${lessonId}`),
@@ -197,5 +209,4 @@ export const api = {
     getEmergencySupportTickets: () => request('/admin/emergency-support'),
     updateEmergencySupportStatus: (id, status) => request(`/admin/emergency-support/${id}/status`, { method: 'PUT', body: JSON.stringify({ status }) }),
 };
-
 

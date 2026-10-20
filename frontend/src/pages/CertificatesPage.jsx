@@ -79,6 +79,48 @@ export default function CertificatesPage() {
     const [customVerCode, setCustomVerCode] = useState(`VER-${Math.random().toString(36).substring(2, 6).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`);
     const [customIssueDate, setCustomIssueDate] = useState(new Date().toISOString().split('T')[0]);
     const [customHonors, setCustomHonors] = useState('With Highest Distinction & Practical Merit');
+    const [certificateText, setCertificateText] = useState({
+        academy: 'CyberLoy Enterprise Academy',
+        title: 'Certificate of Completion',
+        presentation: 'This is officially presented to acknowledge that',
+        achievement: 'has successfully demonstrated academic excellence and practical competence in completing the verified professional curriculum for:',
+        verificationSeal: '100% Verified Cryptographic Seal',
+    });
+    const [certificateColors, setCertificateColors] = useState({
+        academy: '#334155',
+        title: '#92400e',
+        presentation: '#64748b',
+        recipient: '#78350f',
+        achievement: '#475569',
+        course: '#92400e',
+        honors: '#b45309',
+        footer: '#334155',
+    });
+    const [certificateAppearance, setCertificateAppearance] = useState({
+        outerBorder: '#d4af37',
+        innerBorder: '#fbbf24',
+        watermark: '#0f172a',
+        watermarkOpacity: 5,
+        headerIcon: '#d97706',
+        signature: '#0f172a',
+        signatureLine: '#334155',
+        sealLabel: '#334155',
+    });
+    const [headerLogo, setHeaderLogo] = useState({
+        show: true,
+        type: 'shield',
+        size: 32,
+        x: 37,
+        y: 11,
+    });
+    const [watermarkLogo, setWatermarkLogo] = useState({
+        show: true,
+        type: 'shield',
+        customUrl: '',
+        size: 384,
+        x: 50,
+        y: 52,
+    });
 
     // Template Style: 'gold' | 'cyber' | 'iso' | 'minimal' | 'custom_bg'
     const [templateStyle, setTemplateStyle] = useState('gold');
@@ -139,6 +181,7 @@ export default function CertificatesPage() {
     const logoFileRef = useRef(null);
     const bgFileRef = useRef(null);
     const customItemFileRef = useRef(null);
+    const watermarkFileRef = useRef(null);
 
     // Issuing State
     const [issuing, setIssuing] = useState(false);
@@ -303,6 +346,28 @@ export default function CertificatesPage() {
         setSelectedItemId(newItem.id);
     };
 
+    // Add a draggable text element. It uses the same move, visibility,
+    // duplicate and delete controls as uploaded graphics and badges.
+    const handleAddTextItem = () => {
+        const newItem = {
+            id: `item_${Date.now()}_${Math.random().toString(36).substring(2, 5)}`,
+            type: 'text',
+            title: 'Text element',
+            text: 'New certificate text',
+            color: '#0f172a',
+            fontSize: 18,
+            fontWeight: '700',
+            width: 260,
+            opacity: 100,
+            rotation: 0,
+            x: 50,
+            y: 50,
+            show: true,
+        };
+        setCustomItems((prev) => [...prev, newItem]);
+        setSelectedItemId(newItem.id);
+    };
+
     // Clean Custom Item Background
     const handleCleanItemBg = async (itemId) => {
         const target = customItems.find((i) => i.id === itemId);
@@ -369,6 +434,10 @@ export default function CertificatesPage() {
             setSig2((prev) => ({ ...prev, x: posX, y: posY }));
         } else if (draggingElement === 'logo') {
             setLogoSeal((prev) => ({ ...prev, x: posX, y: posY }));
+        } else if (draggingElement === 'header-logo') {
+            setHeaderLogo((prev) => ({ ...prev, x: posX, y: posY }));
+        } else if (draggingElement === 'watermark-logo') {
+            setWatermarkLogo((prev) => ({ ...prev, x: posX, y: posY }));
         } else if (draggingElement.startsWith('item_')) {
             updateCustomItem(draggingElement, { x: posX, y: posY });
         }
@@ -520,9 +589,9 @@ export default function CertificatesPage() {
 
             {/* TAB 1: INTERACTIVE CERTIFICATE DESIGNER & STUDIO */}
             {activeTab === 'designer' && isAdmin && (
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start lg:h-[calc(100vh-10rem)] lg:overflow-hidden">
                     {/* Left Column: Customization Controls & Issue Form (Col 4) */}
-                    <div className="lg:col-span-4 space-y-6 print:hidden">
+                    <div className="lg:col-span-4 space-y-6 print:hidden lg:h-full lg:overflow-y-auto lg:pr-3 lg:pb-6 custom-scrollbar">
                         {/* 1. Template Chooser & Background Upload */}
                         <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm space-y-3">
                             <h3 className="text-xs font-bold text-[#0f172a] uppercase tracking-wider flex items-center gap-2">
@@ -588,6 +657,148 @@ export default function CertificatesPage() {
                             )}
                         </div>
 
+                        {/* 2. Core text and colour controls */}
+                        <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm space-y-4">
+                            <div className="flex items-center justify-between gap-3">
+                                <h3 className="text-xs font-bold text-[#0f172a] uppercase tracking-wider flex items-center gap-2">
+                                    <Edit3 className="w-4 h-4 text-violet-600" /> 2. Edit Certificate Text & Colours
+                                </h3>
+                                <span className="text-[10px] text-slate-400">Changes update live</span>
+                            </div>
+                            <p className="text-[11px] text-slate-500">Edit every main certificate label here. Use the colour pickers to match your brand.</p>
+                            {[
+                                ['academy', 'Academy / organisation'],
+                                ['title', 'Certificate title'],
+                                ['presentation', 'Presentation line'],
+                                ['achievement', 'Achievement statement'],
+                                ['verificationSeal', 'Footer verification line'],
+                            ].map(([key, label]) => (
+                                <div key={key} className="grid grid-cols-[1fr_auto] gap-2 items-end">
+                                    <label className="block min-w-0">
+                                        <span className="block text-[10px] font-semibold text-slate-600 mb-1">{label}</span>
+                                        <input
+                                            type="text"
+                                            value={certificateText[key]}
+                                            onChange={(e) => setCertificateText((current) => ({ ...current, [key]: e.target.value }))}
+                                            className="w-full bg-[#f8fafc] border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 focus:outline-none focus:border-violet-500"
+                                        />
+                                    </label>
+                                    <label className="flex flex-col gap-1 text-[10px] font-semibold text-slate-600">
+                                        Colour
+                                        <input
+                                            type="color"
+                                            value={certificateColors[key === 'verificationSeal' ? 'footer' : key]}
+                                            onChange={(e) => setCertificateColors((current) => ({ ...current, [key === 'verificationSeal' ? 'footer' : key]: e.target.value }))}
+                                            className="h-8 w-10 cursor-pointer rounded border border-slate-200 bg-white p-0.5"
+                                        />
+                                    </label>
+                                </div>
+                            ))}
+                            <div className="grid grid-cols-2 gap-2">
+                                {[
+                                    ['recipient', 'Recipient name'],
+                                    ['course', 'Course name'],
+                                    ['honors', 'Honours line'],
+                                ].map(([key, label]) => (
+                                    <label key={key} className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 bg-[#f8fafc] px-2.5 py-2 text-[10px] font-semibold text-slate-600">
+                                        <span>{label}</span>
+                                        <input
+                                            type="color"
+                                            value={certificateColors[key]}
+                                            onChange={(e) => setCertificateColors((current) => ({ ...current, [key]: e.target.value }))}
+                                            className="h-6 w-8 cursor-pointer rounded border border-slate-200 bg-white p-0.5"
+                                        />
+                                    </label>
+                                ))}
+                            </div>
+                            <div className="border-t border-slate-100 pt-3 space-y-2">
+                                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Canvas, icon, seal & signature colours</div>
+                                <div className="grid grid-cols-2 gap-2">
+                                    {[
+                                        ['outerBorder', 'Outer border'],
+                                        ['innerBorder', 'Inner border'],
+                                        ['watermark', 'Watermark'],
+                                        ['headerIcon', 'Header shield'],
+                                        ['signature', 'Signature text'],
+                                        ['signatureLine', 'Signature line'],
+                                        ['sealLabel', 'Seal label'],
+                                    ].map(([key, label]) => (
+                                        <label key={key} className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 bg-[#f8fafc] px-2.5 py-1.5 text-[10px] font-semibold text-slate-600">
+                                            <span>{label}</span>
+                                            <input
+                                                type="color"
+                                                value={certificateAppearance[key]}
+                                                onChange={(e) => setCertificateAppearance((current) => ({ ...current, [key]: e.target.value }))}
+                                                className="h-6 w-8 cursor-pointer rounded border border-slate-200 bg-white p-0.5"
+                                            />
+                                        </label>
+                                    ))}
+                                </div>
+                                <label className="flex items-center gap-2 text-[10px] font-semibold text-slate-600">
+                                    Watermark opacity
+                                    <input
+                                        type="range"
+                                        min="0"
+                                        max="30"
+                                        value={certificateAppearance.watermarkOpacity}
+                                        onChange={(e) => setCertificateAppearance((current) => ({ ...current, watermarkOpacity: Number(e.target.value) }))}
+                                        className="flex-1 h-1 cursor-pointer appearance-none rounded bg-slate-200"
+                                    />
+                                    <span className="w-7 font-mono">{certificateAppearance.watermarkOpacity}%</span>
+                                </label>
+                                <div className="rounded-lg border border-slate-200 bg-[#f8fafc] p-2.5 space-y-2">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-[10px] font-bold text-slate-700">Header logo / shield</span>
+                                        <label className="flex items-center gap-1 text-[10px] text-slate-600 cursor-pointer">
+                                            <input type="checkbox" checked={headerLogo.show} onChange={(e) => setHeaderLogo((current) => ({ ...current, show: e.target.checked }))} className="rounded border-slate-300 text-violet-600" />
+                                            Show
+                                        </label>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <select value={headerLogo.type} onChange={(e) => setHeaderLogo((current) => ({ ...current, type: e.target.value }))} className="rounded border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-700">
+                                            <option value="shield">Shield check</option>
+                                            <option value="award">Award badge</option>
+                                        </select>
+                                        <button type="button" onClick={() => setHeaderLogo((current) => ({ ...current, x: 37, y: 11, size: 32 }))} className="rounded border border-slate-200 bg-white px-2 py-1.5 text-[10px] font-semibold text-blue-600 hover:bg-blue-50">Reset position</button>
+                                    </div>
+                                    <label className="flex items-center gap-2 text-[10px] text-slate-600">
+                                        Logo size
+                                        <input type="range" min="16" max="100" value={headerLogo.size} onChange={(e) => setHeaderLogo((current) => ({ ...current, size: Number(e.target.value) }))} className="flex-1 h-1 cursor-pointer appearance-none rounded bg-slate-200" />
+                                        <span className="w-8 font-mono">{headerLogo.size}px</span>
+                                    </label>
+                                    <p className="text-[10px] text-slate-400">Drag the logo directly on the certificate to move it.</p>
+                                </div>
+                                <div className="rounded-lg border border-slate-200 bg-[#f8fafc] p-2.5 space-y-2">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-[10px] font-bold text-slate-700">Background watermark logo</span>
+                                        <label className="flex items-center gap-1 text-[10px] text-slate-600 cursor-pointer">
+                                            <input type="checkbox" checked={watermarkLogo.show} onChange={(e) => setWatermarkLogo((current) => ({ ...current, show: e.target.checked }))} className="rounded border-slate-300 text-violet-600" />
+                                            Show
+                                        </label>
+                                    </div>
+                                    <input type="file" ref={watermarkFileRef} accept="image/*" onChange={(e) => handleFileUpload(e, (dataUrl) => setWatermarkLogo((current) => ({ ...current, type: 'custom', customUrl: dataUrl })))} className="hidden" />
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <select value={watermarkLogo.type} onChange={(e) => setWatermarkLogo((current) => ({ ...current, type: e.target.value }))} className="rounded border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-700">
+                                            <option value="shield">Shield check</option>
+                                            <option value="award">Award badge</option>
+                                            <option value="custom">Custom image</option>
+                                        </select>
+                                        <button type="button" onClick={() => watermarkFileRef.current?.click()} className="rounded border border-slate-200 bg-white px-2 py-1.5 text-[10px] font-semibold text-blue-600 hover:bg-blue-50">Upload / replace</button>
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <button type="button" onClick={() => setWatermarkLogo((current) => ({ ...current, x: 50, y: 52, size: 384 }))} className="flex-1 rounded border border-slate-200 bg-white px-2 py-1.5 text-[10px] font-semibold text-blue-600 hover:bg-blue-50">Reset position</button>
+                                        {watermarkLogo.customUrl && <button type="button" onClick={() => setWatermarkLogo((current) => ({ ...current, customUrl: '', type: 'shield' }))} className="rounded border border-red-200 bg-white px-2 py-1.5 text-[10px] font-semibold text-red-600 hover:bg-red-50">Remove image</button>}
+                                    </div>
+                                    <label className="flex items-center gap-2 text-[10px] text-slate-600">
+                                        Watermark size
+                                        <input type="range" min="80" max="700" value={watermarkLogo.size} onChange={(e) => setWatermarkLogo((current) => ({ ...current, size: Number(e.target.value) }))} className="flex-1 h-1 cursor-pointer appearance-none rounded bg-slate-200" />
+                                        <span className="w-9 font-mono">{watermarkLogo.size}px</span>
+                                    </label>
+                                    <p className="text-[10px] text-slate-400">Drag it on the certificate; use the Watermark colour and opacity controls above.</p>
+                                </div>
+                            </div>
+                        </div>
+
                         {/* 2. Upload Custom Logos & Arbitrary Items Manager */}
                         <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm space-y-4">
                             <div className="flex items-center justify-between">
@@ -639,6 +850,13 @@ export default function CertificatesPage() {
                                     className="px-2 py-0.5 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-semibold flex items-center gap-1 transition"
                                 >
                                     <Award className="w-3 h-3 text-emerald-600" /> + ISO Crest
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={handleAddTextItem}
+                                    className="px-2 py-0.5 rounded-md bg-violet-50 hover:bg-violet-100 border border-violet-200 text-violet-700 text-[10px] font-semibold flex items-center gap-1 transition"
+                                >
+                                    <Edit3 className="w-3 h-3" /> + Text Element
                                 </button>
                             </div>
 
@@ -738,6 +956,41 @@ export default function CertificatesPage() {
                                                             <option value="normal">Normal</option>
                                                             <option value="screen">Screen (Dark)</option>
                                                         </select>
+                                                    </div>
+                                                )}
+
+                                                {item.type === 'text' && (
+                                                    <div className="grid grid-cols-[1fr_auto] gap-2 rounded-lg border border-violet-200 bg-violet-50/50 p-2" onClick={(e) => e.stopPropagation()}>
+                                                        <label className="min-w-0">
+                                                            <span className="mb-1 block text-[10px] font-semibold text-violet-800">Text content</span>
+                                                            <input
+                                                                type="text"
+                                                                value={item.text || ''}
+                                                                onChange={(e) => updateCustomItem(item.id, { text: e.target.value })}
+                                                                className="w-full rounded border border-violet-200 bg-white px-2 py-1 text-xs text-slate-800 focus:outline-none focus:border-violet-500"
+                                                            />
+                                                        </label>
+                                                        <label className="flex flex-col gap-1 text-[10px] font-semibold text-violet-800">
+                                                            Colour
+                                                            <input
+                                                                type="color"
+                                                                value={item.color || '#0f172a'}
+                                                                onChange={(e) => updateCustomItem(item.id, { color: e.target.value })}
+                                                                className="h-7 w-9 cursor-pointer rounded border border-violet-200 bg-white p-0.5"
+                                                            />
+                                                        </label>
+                                                        <label className="col-span-2 flex items-center gap-2 text-[10px] text-slate-600">
+                                                            <span>Text size</span>
+                                                            <input
+                                                                type="range"
+                                                                min="10"
+                                                                max="48"
+                                                                value={item.fontSize || 18}
+                                                                onChange={(e) => updateCustomItem(item.id, { fontSize: Number(e.target.value) })}
+                                                                className="flex-1 h-1 cursor-pointer appearance-none rounded-lg bg-violet-200"
+                                                            />
+                                                            <span className="w-8 font-mono">{item.fontSize || 18}px</span>
+                                                        </label>
                                                     </div>
                                                 )}
 
@@ -1349,7 +1602,7 @@ export default function CertificatesPage() {
                     </div>
 
                     {/* Right Column: Live Interactive Certificate Preview Canvas (Col 8) */}
-                    <div className="lg:col-span-8 space-y-4">
+                    <div className="lg:col-span-8 space-y-4 lg:sticky lg:top-0 lg:self-start">
                         <div className="flex items-center justify-between bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm print:hidden">
                             <div className="flex items-center gap-2 text-xs text-slate-600 font-medium">
                                 <Sparkles className="w-4 h-4 text-amber-500" />
@@ -1379,69 +1632,99 @@ export default function CertificatesPage() {
                                     ? 'bg-white border-8 border-slate-800 text-slate-900 shadow-slate-900/10'
                                     : 'bg-white border-8 border-slate-800 text-slate-900 shadow-slate-900/10'
                             }`}
-                            style={
-                                templateStyle === 'custom_bg' && customBgImage
+                            style={{
+                                borderColor: certificateAppearance.outerBorder,
+                                ...(templateStyle === 'custom_bg' && customBgImage
                                     ? {
                                           backgroundImage: `url(${customBgImage})`,
                                           backgroundSize: 'cover',
                                           backgroundPosition: 'center',
                                       }
-                                    : {}
-                            }
+                                    : {}),
+                            }}
                         >
                             {/* Decorative Certificate Inner Border (when not custom bg) */}
                             {templateStyle !== 'custom_bg' && (
-                                <div
-                                    className={`absolute inset-3.5 border-2 pointer-events-none rounded-2xl ${
-                                        templateStyle === 'gold'
-                                            ? 'border-amber-400/60'
-                                            : templateStyle === 'cyber'
-                                            ? 'border-cyan-400/40'
-                                            : templateStyle === 'iso'
-                                            ? 'border-emerald-500/50'
-                                            : 'border-slate-300'
-                                    }`}
-                                />
+                                <div style={{ borderColor: certificateAppearance.innerBorder }} className="absolute inset-3.5 border-2 pointer-events-none rounded-2xl" />
                             )}
 
-                            {/* Watermark Crest Background */}
-                            {templateStyle !== 'custom_bg' && (
-                                <div className="absolute inset-0 flex items-center justify-center opacity-5 pointer-events-none">
-                                    <ShieldCheck className="w-96 h-96" />
+                            {/* Editable background watermark */}
+                            {watermarkLogo.show && (
+                                <div
+                                    onMouseDown={(e) => handleMouseDown('watermark-logo', e)}
+                                    onTouchStart={(e) => handleMouseDown('watermark-logo', e)}
+                                    style={{
+                                        position: 'absolute',
+                                        left: `${watermarkLogo.x}%`,
+                                        top: `${watermarkLogo.y}%`,
+                                        transform: 'translate(-50%, -50%)',
+                                        opacity: certificateAppearance.watermarkOpacity / 100,
+                                    }}
+                                    title="Drag to move watermark"
+                                    className={`cursor-move transition-opacity ${draggingElement === 'watermark-logo' ? 'z-20' : 'z-0'}`}
+                                >
+                                    {watermarkLogo.type === 'custom' && watermarkLogo.customUrl ? (
+                                        <img src={watermarkLogo.customUrl} alt="Watermark" style={{ width: `${watermarkLogo.size}px`, height: `${watermarkLogo.size}px` }} className="object-contain" />
+                                    ) : watermarkLogo.type === 'award' ? (
+                                        <Award style={{ color: certificateAppearance.watermark, width: `${watermarkLogo.size}px`, height: `${watermarkLogo.size}px` }} />
+                                    ) : (
+                                        <ShieldCheck style={{ color: certificateAppearance.watermark, width: `${watermarkLogo.size}px`, height: `${watermarkLogo.size}px` }} />
+                                    )}
                                 </div>
                             )}
 
                             {/* Certificate Header Top */}
                             <div className="relative z-10 text-center space-y-2 pt-2">
                                 <div className="flex items-center justify-center gap-2 mb-1">
-                                    <ShieldCheck className={`w-8 h-8 ${templateStyle === 'gold' ? 'text-amber-600' : templateStyle === 'cyber' ? 'text-cyan-400' : templateStyle === 'iso' ? 'text-emerald-600' : 'text-slate-800'}`} />
-                                    <span className={`text-xs uppercase tracking-[0.25em] font-extrabold ${templateStyle === 'cyber' ? 'text-cyan-400' : 'text-slate-700'}`}>
-                                        CyberLoy Enterprise Academy
+                                    <span contentEditable suppressContentEditableWarning onBlur={(e) => setCertificateText((current) => ({ ...current, academy: e.currentTarget.textContent || '' }))} style={{ color: certificateColors.academy }} className="cursor-text select-text text-xs uppercase tracking-[0.25em] font-extrabold">
+                                        {certificateText.academy}
                                     </span>
                                 </div>
 
-                                <h2 className={`text-2xl sm:text-4xl font-black tracking-wide uppercase ${templateStyle === 'gold' ? 'text-amber-800 font-serif' : templateStyle === 'cyber' ? 'text-white' : templateStyle === 'iso' ? 'text-emerald-900 font-serif' : 'text-slate-900'}`}>
-                                    Certificate of Completion
+                                <h2 contentEditable suppressContentEditableWarning onBlur={(e) => setCertificateText((current) => ({ ...current, title: e.currentTarget.textContent || '' }))} style={{ color: certificateColors.title }} className={`cursor-text select-text text-2xl sm:text-4xl font-black tracking-wide uppercase ${templateStyle === 'gold' || templateStyle === 'iso' ? 'font-serif' : ''}`}>
+                                    {certificateText.title}
                                 </h2>
 
-                                <p className={`text-xs uppercase tracking-widest font-semibold ${templateStyle === 'cyber' ? 'text-slate-400' : 'text-slate-500'}`}>
-                                    This is officially presented to acknowledge that
+                                <p contentEditable suppressContentEditableWarning onBlur={(e) => setCertificateText((current) => ({ ...current, presentation: e.currentTarget.textContent || '' }))} style={{ color: certificateColors.presentation }} className="cursor-text select-text text-xs uppercase tracking-widest font-semibold">
+                                    {certificateText.presentation}
                                 </p>
                             </div>
 
+                            {/* Draggable header logo: hide, resize and change its icon in the design controls. */}
+                            {headerLogo.show && (
+                                <div
+                                    onMouseDown={(e) => handleMouseDown('header-logo', e)}
+                                    onTouchStart={(e) => handleMouseDown('header-logo', e)}
+                                    style={{
+                                        position: 'absolute',
+                                        left: `${headerLogo.x}%`,
+                                        top: `${headerLogo.y}%`,
+                                        transform: 'translate(-50%, -50%)',
+                                    }}
+                                    title="Drag to move header logo"
+                                    className={`cursor-move rounded-lg p-1.5 transition-all ${draggingElement === 'header-logo' ? 'z-40' : 'z-20'}`}
+                                >
+                                    {headerLogo.type === 'award' ? (
+                                        <Award style={{ color: certificateAppearance.headerIcon, width: `${headerLogo.size}px`, height: `${headerLogo.size}px` }} />
+                                    ) : (
+                                        <ShieldCheck style={{ color: certificateAppearance.headerIcon, width: `${headerLogo.size}px`, height: `${headerLogo.size}px` }} />
+                                    )}
+                                </div>
+                            )}
+
                             {/* Recipient Name */}
                             <div className="relative z-10 text-center my-6 sm:my-8">
-                                <div className={`text-2xl sm:text-4xl font-extrabold tracking-tight underline decoration-2 underline-offset-8 ${templateStyle === 'gold' ? 'text-amber-900 decoration-amber-500' : templateStyle === 'cyber' ? 'text-cyan-300 decoration-cyan-400' : templateStyle === 'iso' ? 'text-emerald-800 decoration-emerald-500' : 'text-slate-900 decoration-slate-400'}`}>
+                                <div contentEditable suppressContentEditableWarning onBlur={(e) => setCustomStudentName(e.currentTarget.textContent || '')} style={{ color: certificateColors.recipient, textDecorationColor: certificateColors.recipient }} className="cursor-text select-text text-2xl sm:text-4xl font-extrabold tracking-tight underline decoration-2 underline-offset-8">
                                     {customStudentName || 'Alex Johnson'}
                                 </div>
-                                <p className={`text-xs mt-3 max-w-lg mx-auto ${templateStyle === 'cyber' ? 'text-slate-400' : 'text-slate-600'}`}>
-                                    has successfully demonstrated academic excellence and practical competence in completing the verified professional curriculum for:
+                                <p contentEditable suppressContentEditableWarning onBlur={(e) => setCertificateText((current) => ({ ...current, achievement: e.currentTarget.textContent || '' }))} style={{ color: certificateColors.achievement }} className="cursor-text select-text text-xs mt-3 max-w-lg mx-auto">
+                                    {certificateText.achievement}
                                 </p>
-                                <div className={`text-base sm:text-xl font-bold mt-2 ${templateStyle === 'gold' ? 'text-amber-800' : templateStyle === 'cyber' ? 'text-white' : templateStyle === 'iso' ? 'text-emerald-900' : 'text-slate-900'}`}>
+                                <div contentEditable suppressContentEditableWarning onBlur={(e) => setCustomCourseTitle(e.currentTarget.textContent || '')} style={{ color: certificateColors.course }} className="cursor-text select-text text-base sm:text-xl font-bold mt-2">
                                     {customCourseTitle}
                                 </div>
                                 {customHonors && (
-                                    <div className={`text-xs italic mt-1 ${templateStyle === 'gold' ? 'text-amber-700' : templateStyle === 'cyber' ? 'text-cyan-400' : 'text-emerald-700'}`}>
+                                    <div contentEditable suppressContentEditableWarning onBlur={(e) => setCustomHonors(e.currentTarget.textContent?.replace(/^★\s*|\s*★$/g, '') || '')} style={{ color: certificateColors.honors }} className="cursor-text select-text text-xs italic mt-1">
                                         ★ {customHonors} ★
                                     </div>
                                 )}
@@ -1466,14 +1749,26 @@ export default function CertificatesPage() {
                                             opacity: (item.opacity ?? 100) / 100,
                                             width: `${item.width}px`,
                                         }}
-                                        className={`cursor-move p-1.5 rounded-xl border border-dashed transition-all group ${
+                                        className={`cursor-move p-1.5 rounded-xl transition-all group ${
                                             isDragging || isSelected
-                                                ? 'border-blue-500 bg-blue-50/70 scale-105 z-40 shadow-xl ring-2 ring-blue-400'
-                                                : 'border-transparent hover:border-slate-400/60 z-30'
+                                                ? 'z-40'
+                                                : 'z-30'
                                         }`}
                                     >
                                         <div className="pointer-events-none flex flex-col items-center justify-center text-center">
-                                            {item.type === 'image' && item.url ? (
+                                            {item.type === 'text' ? (
+                                                <span
+                                                    style={{
+                                                        color: item.color || '#0f172a',
+                                                        fontSize: `${item.fontSize || 18}px`,
+                                                        fontWeight: item.fontWeight || '700',
+                                                        lineHeight: 1.2,
+                                                    }}
+                                                    className="max-w-full break-words"
+                                                >
+                                                    {item.text || 'New certificate text'}
+                                                </span>
+                                            ) : item.type === 'image' && item.url ? (
                                                 <img
                                                     src={item.url}
                                                     alt={item.title}
@@ -1514,12 +1809,6 @@ export default function CertificatesPage() {
                                             )}
                                         </div>
 
-                                        {/* Floating Position Indicator when dragging */}
-                                        {(isDragging || isSelected) && (
-                                            <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-[8px] font-mono px-1.5 py-0.5 rounded shadow whitespace-nowrap pointer-events-none z-50">
-                                                X:{item.x}% Y:{item.y}%
-                                            </div>
-                                        )}
                                     </div>
                                 );
                             })}
@@ -1535,10 +1824,10 @@ export default function CertificatesPage() {
                                         top: `${sig1.y}%`,
                                         transform: 'translate(-50%, -50%)',
                                     }}
-                                    className={`cursor-move group p-2 rounded-xl border border-dashed transition-all ${
+                                    className={`cursor-move group p-2 rounded-xl transition-all ${
                                         draggingElement === 'sig1'
-                                            ? 'border-blue-500 bg-blue-50/80 scale-105 z-30 shadow-lg'
-                                            : 'border-transparent hover:border-slate-400/60 z-20'
+                                            ? 'z-30'
+                                            : 'z-20'
                                     }`}
                                 >
                                     <div className="text-center pointer-events-none flex flex-col items-center" style={{ width: `${sig1.width}px` }}>
@@ -1553,15 +1842,15 @@ export default function CertificatesPage() {
                                                 className="h-14 w-auto max-w-full object-contain mb-1 filter drop-shadow-xs"
                                             />
                                         ) : (
-                                            <div className={`font-serif text-lg italic ${templateStyle === 'cyber' ? 'text-cyan-300' : 'text-slate-800'}`}>
+                                            <div style={{ color: certificateAppearance.signature }} className="font-serif text-lg italic">
                                                 {sig1.sigText || 'M. Vance'}
                                             </div>
                                         )}
-                                        <div className={`w-full border-t my-1 ${templateStyle === 'cyber' ? 'border-cyan-500/60' : 'border-slate-800'}`} />
-                                        <div className={`text-xs font-bold ${templateStyle === 'cyber' ? 'text-white' : 'text-slate-900'}`}>
+                                        <div style={{ borderColor: certificateAppearance.signatureLine }} className="w-full border-t my-1" />
+                                        <div style={{ color: certificateAppearance.signature }} className="text-xs font-bold">
                                             {sig1.name}
                                         </div>
-                                        <div className={`text-[9px] uppercase font-semibold ${templateStyle === 'cyber' ? 'text-slate-400' : 'text-slate-500'}`}>
+                                        <div style={{ color: certificateAppearance.signature }} className="text-[9px] uppercase font-semibold opacity-70">
                                             {sig1.title}
                                         </div>
                                     </div>
@@ -1579,10 +1868,10 @@ export default function CertificatesPage() {
                                         top: `${logoSeal.y}%`,
                                         transform: 'translate(-50%, -50%)',
                                     }}
-                                    className={`cursor-move group p-2 rounded-xl border border-dashed transition-all ${
+                                    className={`cursor-move group p-2 rounded-xl transition-all ${
                                         draggingElement === 'logo'
-                                            ? 'border-blue-500 bg-blue-50/80 scale-105 z-30 shadow-lg'
-                                            : 'border-transparent hover:border-slate-400/60 z-20'
+                                            ? 'z-30'
+                                            : 'z-20'
                                     }`}
                                 >
                                     <div className="text-center pointer-events-none flex flex-col items-center" style={{ width: `${Math.max(logoSeal.size, 110)}px` }}>
@@ -1619,7 +1908,7 @@ export default function CertificatesPage() {
                                                 <Award className="w-2/3 h-2/3" />
                                             </div>
                                         )}
-                                        <div className={`text-[8px] uppercase tracking-widest font-extrabold ${templateStyle === 'cyber' ? 'text-cyan-400' : 'text-slate-700'}`}>
+                                        <div style={{ color: certificateAppearance.sealLabel }} className="text-[8px] uppercase tracking-widest font-extrabold">
                                             {logoSeal.label}
                                         </div>
                                     </div>
@@ -1637,10 +1926,10 @@ export default function CertificatesPage() {
                                         top: `${sig2.y}%`,
                                         transform: 'translate(-50%, -50%)',
                                     }}
-                                    className={`cursor-move group p-2 rounded-xl border border-dashed transition-all ${
+                                    className={`cursor-move group p-2 rounded-xl transition-all ${
                                         draggingElement === 'sig2'
-                                            ? 'border-blue-500 bg-blue-50/80 scale-105 z-30 shadow-lg'
-                                            : 'border-transparent hover:border-slate-400/60 z-20'
+                                            ? 'z-30'
+                                            : 'z-20'
                                     }`}
                                 >
                                     <div className="text-center pointer-events-none flex flex-col items-center" style={{ width: `${sig2.width}px` }}>
@@ -1655,15 +1944,15 @@ export default function CertificatesPage() {
                                                 className="h-14 w-auto max-w-full object-contain mb-1 filter drop-shadow-xs"
                                             />
                                         ) : (
-                                            <div className={`font-serif text-lg italic ${templateStyle === 'cyber' ? 'text-cyan-300' : 'text-slate-800'}`}>
+                                            <div style={{ color: certificateAppearance.signature }} className="font-serif text-lg italic">
                                                 {sig2.sigText || 'S. Jenkins'}
                                             </div>
                                         )}
-                                        <div className={`w-full border-t my-1 ${templateStyle === 'cyber' ? 'border-cyan-500/60' : 'border-slate-800'}`} />
-                                        <div className={`text-xs font-bold ${templateStyle === 'cyber' ? 'text-white' : 'text-slate-900'}`}>
+                                        <div style={{ borderColor: certificateAppearance.signatureLine }} className="w-full border-t my-1" />
+                                        <div style={{ color: certificateAppearance.signature }} className="text-xs font-bold">
                                             {sig2.name}
                                         </div>
-                                        <div className={`text-[9px] uppercase font-semibold ${templateStyle === 'cyber' ? 'text-slate-400' : 'text-slate-500'}`}>
+                                        <div style={{ color: certificateAppearance.signature }} className="text-[9px] uppercase font-semibold opacity-70">
                                             {sig2.title}
                                         </div>
                                     </div>
@@ -1671,14 +1960,14 @@ export default function CertificatesPage() {
                             )}
 
                             {/* Certificate Footer Metadata */}
-                            <div className="absolute bottom-6 left-10 right-10 flex items-center justify-between text-[9px] font-mono opacity-80">
+                            <div style={{ color: certificateColors.footer }} className="absolute bottom-6 left-10 right-10 flex items-center justify-between text-[9px] font-mono opacity-80">
                                 <div>
                                     <span className="block font-bold">Certificate ID: {customCertCode}</span>
                                     <span>Verification Code: {customVerCode}</span>
                                 </div>
                                 <div className="text-right">
                                     <span className="block font-bold">Issued: {customIssueDate}</span>
-                                    <span>100% Verified Cryptographic Seal</span>
+                                    <span>{certificateText.verificationSeal}</span>
                                 </div>
                             </div>
                         </div>
