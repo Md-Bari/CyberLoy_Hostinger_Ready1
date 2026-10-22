@@ -219,7 +219,7 @@ export default function YouTubePlayer({
     const displayProgress = Math.max(watchPercentage, liveProgress);
 
     return (
-        <div className="relative w-full aspect-video bg-slate-950 rounded-2xl overflow-hidden border border-slate-800 shadow-2xl">
+        <div className="relative w-full aspect-video bg-slate-950 rounded-2xl overflow-hidden border border-slate-200 shadow-sm">
             <div id={containerIdRef.current} className="w-full h-full" />
         </div>
     );

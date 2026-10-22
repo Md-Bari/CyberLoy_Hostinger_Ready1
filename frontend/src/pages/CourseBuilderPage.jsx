@@ -5,6 +5,13 @@ import {
     BookOpen, Plus, Settings, Edit3, Trash2, Shield, ChevronLeft,
     CheckCircle, X, Play, ArrowLeft, Sparkles, Layers, Video
 } from 'lucide-react';
+import { buildLiveClassLink } from '../lib/liveClass';
+
+const LESSON_KINDS = [
+    { id: 'video', label: 'Video Lesson', Icon: Video, description: 'A YouTube video students must watch fully. You can add an optional quiz after it.' },
+    { id: 'mcq', label: 'MCQ Quiz', Icon: CheckCircle, description: 'Multiple-choice questions, graded automatically against a pass mark.' },
+    { id: 'written', label: 'Written Assignment', Icon: Edit3, description: 'Open-ended prompts that students answer in writing and an instructor grades.' },
+];
 
 export default function CourseBuilderPage() {
     const navigate = useNavigate();
@@ -47,8 +54,13 @@ export default function CourseBuilderPage() {
     const [newLessonYoutubeUrl, setNewLessonYoutubeUrl] = useState('');
     const [newLessonPdfUrl, setNewLessonPdfUrl] = useState('');
     const [newLessonAssessmentType, setNewLessonAssessmentType] = useState('none');
-    const [newLessonAssessmentConfig, setNewLessonAssessmentConfig] = useState('');
+    const [newLessonAssessmentEditor, setNewLessonAssessmentEditor] = useState({
+        max_attempts: 3,
+        passing_score: 70,
+        questions: [{ question: '', options: ['', ''], correct_answer: '', instructions: '' }],
+    });
     const [newLessonDuration, setNewLessonDuration] = useState('600');
+    const [lessonKind, setLessonKind] = useState(null); // null (choosing) | 'video' | 'mcq' | 'written'
     const [addingLesson, setAddingLesson] = useState(false);
 
     // Create New Course Modal State
@@ -62,6 +74,15 @@ export default function CourseBuilderPage() {
     const [newInstructorId, setNewInstructorId] = useState('');
     const [newProgressionMode, setNewProgressionMode] = useState('sequential');
     const [creatingCourse, setCreatingCourse] = useState(false);
+
+    const [liveSessionForm, setLiveSessionForm] = useState({
+        title: '',
+        description: '',
+        starts_at: '',
+        duration_minutes: '60',
+        status: 'scheduled',
+    });
+    const [savingLiveSession, setSavingLiveSession] = useState(false);
 
     useEffect(() => {
         loadCourses();
@@ -139,6 +160,44 @@ export default function CourseBuilderPage() {
             alert(e.message || 'Failed to create course');
         } finally {
             setCreatingCourse(false);
+        }
+    };
+
+    const handleCreateLiveSession = async (e) => {
+        e.preventDefault();
+        if (!selectedCourse) return;
+        setSavingLiveSession(true);
+        setMessage('');
+
+        try {
+            await api.createCourseLiveSession(selectedCourse.id, {
+                title: liveSessionForm.title,
+                description: liveSessionForm.description,
+                starts_at: liveSessionForm.starts_at || undefined,
+                duration_minutes: Number(liveSessionForm.duration_minutes || 60),
+                status: liveSessionForm.status,
+            });
+
+            setMessage(`Live class "${liveSessionForm.title}" scheduled successfully.`);
+            setLiveSessionForm({ title: '', description: '', starts_at: '', duration_minutes: '60', status: 'scheduled' });
+            const refreshed = await api.getCourseDetails(selectedCourse.id);
+            setSelectedCourse(refreshed);
+        } catch (e) {
+            alert(e.message || 'Unable to schedule live class.');
+        } finally {
+            setSavingLiveSession(false);
+        }
+    };
+
+    const handleDeleteLiveSession = async (sessionId) => {
+        if (!window.confirm('Delete this live class session?')) return;
+        try {
+            await api.deleteCourseLiveSession(sessionId);
+            const refreshed = await api.getCourseDetails(selectedCourse.id);
+            setSelectedCourse(refreshed);
+            setMessage('Live class removed.');
+        } catch (e) {
+            alert(e.message || 'Unable to delete live class.');
         }
     };
 
@@ -243,28 +302,165 @@ export default function CourseBuilderPage() {
         }
     };
 
+    const createAssessmentEditor = (type = 'mcq') => ({
+        max_attempts: 3,
+        passing_score: 70,
+        questions: type === 'mcq'
+            ? [{ question: '', options: ['', ''], correct_answer: '', instructions: '' }]
+            : [{ question: '', instructions: '' }],
+    });
+
+    const normalizeAssessmentEditor = (rawConfig, type) => {
+        const safeType = type === 'written' ? 'written' : 'mcq';
+        const normalizedQuestions = Array.isArray(rawConfig?.questions)
+            ? rawConfig.questions
+            : (Array.isArray(rawConfig) ? rawConfig : []);
+
+        const questions = normalizedQuestions.length > 0
+            ? normalizedQuestions.map((question) => {
+                if (safeType === 'mcq') {
+                    return {
+                        question: question.question || question.text || '',
+                        options: Array.isArray(question.options) && question.options.length > 0
+                            ? question.options.map(String)
+                            : ['', ''],
+                        correct_answer: question.correct_answer || '',
+                        instructions: question.instructions || '',
+                    };
+                }
+
+                return {
+                    question: question.question || question.text || '',
+                    instructions: question.instructions || '',
+                };
+            })
+            : [safeType === 'mcq'
+                ? { question: '', options: ['', ''], correct_answer: '', instructions: '' }
+                : { question: '', instructions: '' }];
+
+        return {
+            max_attempts: Number(rawConfig?.max_attempts || 3),
+            passing_score: Number(rawConfig?.passing_score || 70),
+            questions,
+        };
+    };
+
+    const parseAssessmentConfig = () => {
+        if (newLessonAssessmentType === 'none') {
+            return {};
+        }
+
+        const questions = newLessonAssessmentEditor.questions
+            .filter((question) => {
+                if (newLessonAssessmentType === 'mcq') {
+                    const hasContent = (question.question || '').trim() || question.options.some((option) => (option || '').trim());
+                    return hasContent;
+                }
+                return (question.question || '').trim() || (question.instructions || '').trim();
+            })
+            .map((question) => {
+                if (newLessonAssessmentType === 'mcq') {
+                    const options = (question.options || []).map((option) => String(option).trim()).filter(Boolean);
+                    return {
+                        question: (question.question || '').trim(),
+                        options,
+                        correct_answer: String(question.correct_answer || '').trim(),
+                        instructions: question.instructions || '',
+                    };
+                }
+
+                return {
+                    question: (question.question || '').trim(),
+                    instructions: question.instructions || '',
+                };
+            });
+
+        return {
+            max_attempts: Number(newLessonAssessmentEditor.max_attempts || 3),
+            passing_score: Number(newLessonAssessmentEditor.passing_score || 70),
+            questions,
+        };
+    };
+
+    const resetLessonForm = () => {
+        setLessonKind(null);
+        setNewLessonTitle('');
+        setNewLessonDesc('');
+        setNewLessonYoutubeUrl('');
+        setNewLessonPdfUrl('');
+        setNewLessonDuration('600');
+        setNewLessonAssessmentType('none');
+        setNewLessonAssessmentEditor({ max_attempts: 3, passing_score: 70, questions: [] });
+    };
+
+    const closeLessonModal = () => {
+        setLessonModalSectionId(null);
+        setEditingLessonModal(null);
+        resetLessonForm();
+    };
+
+    const openAddLessonModal = (sectionId) => {
+        resetLessonForm();
+        setEditingLessonModal(null);
+        setLessonModalSectionId(sectionId);
+    };
+
+    // Step 1 of the lesson modal: the chosen kind decides which fields are shown.
+    const chooseLessonKind = (kind) => {
+        setLessonKind(kind);
+        if (kind === 'video') {
+            setNewLessonAssessmentType('none');
+            setNewLessonAssessmentEditor({ max_attempts: 3, passing_score: 70, questions: [] });
+        } else {
+            setNewLessonAssessmentType(kind);
+            setNewLessonAssessmentEditor(createAssessmentEditor(kind));
+        }
+    };
+
+    const buildLessonPayload = () => {
+        const isVideo = lessonKind === 'video';
+        return {
+            title: newLessonTitle,
+            description: newLessonDesc,
+            youtube_url: isVideo ? newLessonYoutubeUrl : '',
+            pdf_url: newLessonPdfUrl,
+            assessment_type: isVideo ? newLessonAssessmentType : lessonKind,
+            assessment_config: parseAssessmentConfig(),
+            duration_seconds: isVideo ? (parseInt(newLessonDuration, 10) || 600) : 0,
+        };
+    };
+
+    const validateLessonForm = () => {
+        if (lessonKind === 'video' && !newLessonYoutubeUrl.trim()) {
+            return 'Add the YouTube link for this video lesson.';
+        }
+        const type = lessonKind === 'video' ? newLessonAssessmentType : lessonKind;
+        if (type === 'none') return '';
+        const questions = parseAssessmentConfig().questions || [];
+        if (questions.length === 0) {
+            return type === 'mcq' ? 'Add at least one quiz question.' : 'Add at least one assignment prompt.';
+        }
+        if (type === 'mcq') {
+            const broken = questions.findIndex((q) => !q.question || q.options.length < 2 || !q.options.includes(q.correct_answer));
+            if (broken !== -1) {
+                return `Question ${broken + 1} needs text, at least two options and a selected correct answer.`;
+            }
+        }
+        return '';
+    };
+
     const handleAddLesson = async (e) => {
         e.preventDefault();
         if (!lessonModalSectionId) return;
+        const problem = validateLessonForm();
+        if (problem) {
+            alert(problem);
+            return;
+        }
         setAddingLesson(true);
         try {
-            const parsedAssessmentConfig = parseAssessmentConfig(newLessonAssessmentConfig);
-            await api.createLesson(lessonModalSectionId, {
-                title: newLessonTitle,
-                description: newLessonDesc,
-                youtube_url: newLessonYoutubeUrl,
-                pdf_url: newLessonPdfUrl,
-                assessment_type: newLessonAssessmentType,
-                assessment_config: parsedAssessmentConfig,
-                duration_seconds: parseInt(newLessonDuration, 10) || 600,
-            });
-            setNewLessonTitle('');
-            setNewLessonDesc('');
-            setNewLessonYoutubeUrl('');
-            setNewLessonPdfUrl('');
-            setNewLessonAssessmentType('none');
-            setNewLessonAssessmentConfig('');
-            setLessonModalSectionId(null);
+            await api.createLesson(lessonModalSectionId, buildLessonPayload());
+            closeLessonModal();
             await loadCourses();
         } catch (e) {
             alert(e.message || 'Failed to add lesson');
@@ -274,42 +470,32 @@ export default function CourseBuilderPage() {
     };
 
     const openEditLessonModal = (les) => {
+        const kind = les.youtube_video_id || les.youtube_url
+            ? 'video'
+            : (['mcq', 'written'].includes(les.assessment_type) ? les.assessment_type : 'video');
+        setLessonKind(kind);
         setEditingLessonModal(les);
         setNewLessonTitle(les.title);
         setNewLessonDesc(les.description || '');
         setNewLessonYoutubeUrl(les.youtube_url || (les.youtube_video_id ? `https://www.youtube.com/watch?v=${les.youtube_video_id}` : ''));
         setNewLessonPdfUrl(les.pdf_url || '');
         setNewLessonAssessmentType(les.assessment_type || 'none');
-        setNewLessonAssessmentConfig(
-            typeof les.assessment_config === 'string'
-                ? les.assessment_config
-                : JSON.stringify(les.assessment_config || {}, null, 2)
-        );
+        setNewLessonAssessmentEditor(normalizeAssessmentEditor(les.assessment_config || {}, les.assessment_type || 'none'));
         setNewLessonDuration(String(les.duration_seconds || 600));
     };
 
     const handleSaveLesson = async (e) => {
         e.preventDefault();
         if (!editingLessonModal) return;
+        const problem = validateLessonForm();
+        if (problem) {
+            alert(problem);
+            return;
+        }
         setAddingLesson(true);
         try {
-            const parsedAssessmentConfig = parseAssessmentConfig(newLessonAssessmentConfig);
-            await api.updateLesson(editingLessonModal.id, {
-                title: newLessonTitle,
-                description: newLessonDesc,
-                youtube_url: newLessonYoutubeUrl,
-                pdf_url: newLessonPdfUrl,
-                assessment_type: newLessonAssessmentType,
-                assessment_config: parsedAssessmentConfig,
-                duration_seconds: parseInt(newLessonDuration, 10) || 600,
-            });
-            setEditingLessonModal(null);
-            setNewLessonTitle('');
-            setNewLessonDesc('');
-            setNewLessonYoutubeUrl('');
-            setNewLessonPdfUrl('');
-            setNewLessonAssessmentType('none');
-            setNewLessonAssessmentConfig('');
+            await api.updateLesson(editingLessonModal.id, buildLessonPayload());
+            closeLessonModal();
             await loadCourses();
         } catch (e) {
             alert(e.message || 'Failed to update lesson');
@@ -318,17 +504,45 @@ export default function CourseBuilderPage() {
         }
     };
 
-    const parseAssessmentConfig = (value) => {
-        if (!value || !value.trim()) {
-            return [];
-        }
+    const addAssessmentQuestion = () => {
+        setNewLessonAssessmentEditor((current) => ({
+            ...current,
+            questions: newLessonAssessmentType === 'mcq'
+                ? [...(current.questions || []), { question: '', options: ['', ''], correct_answer: '', instructions: '' }]
+                : [...(current.questions || []), { question: '', instructions: '' }],
+        }));
+    };
 
-        try {
-            const parsed = JSON.parse(value);
-            return parsed;
-        } catch (e) {
-            throw new Error('Assessment configuration must be valid JSON.');
-        }
+    const updateAssessmentQuestion = (index, field, value) => {
+        setNewLessonAssessmentEditor((current) => ({
+            ...current,
+            questions: (current.questions || []).map((question, questionIndex) => {
+                if (questionIndex !== index) return question;
+                if (newLessonAssessmentType === 'mcq') {
+                    return { ...question, [field]: value };
+                }
+                return { ...question, [field]: value };
+            }),
+        }));
+    };
+
+    const updateAssessmentOption = (questionIndex, optionIndex, value) => {
+        setNewLessonAssessmentEditor((current) => ({
+            ...current,
+            questions: (current.questions || []).map((question, idx) => {
+                if (idx !== questionIndex) return question;
+                const options = [...(question.options || ['', ''])];
+                options[optionIndex] = value;
+                return { ...question, options };
+            }),
+        }));
+    };
+
+    const removeAssessmentQuestion = (index) => {
+        setNewLessonAssessmentEditor((current) => ({
+            ...current,
+            questions: (current.questions || []).filter((_, questionIndex) => questionIndex !== index),
+        }));
     };
 
     const handleDeleteLesson = async (lessonId) => {
@@ -499,6 +713,116 @@ export default function CourseBuilderPage() {
                                 </div>
                             </div>
 
+                            <div className="bg-[#f8fafc] border border-slate-200/80 rounded-2xl p-5 space-y-4">
+                                <div className="flex items-center justify-between gap-3 pb-3 border-b border-slate-200/80">
+                                    <div className="flex items-center gap-2 text-[#0f172a]">
+                                        <Video className="w-4 h-4 text-blue-600" />
+                                        <h3 className="text-xs font-bold uppercase tracking-wider">Live Classroom Scheduler</h3>
+                                    </div>
+                                    <span className="text-[10px] text-slate-500">LiveKit ready</span>
+                                </div>
+
+                                <form onSubmit={handleCreateLiveSession} className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    <input
+                                        type="text"
+                                        value={liveSessionForm.title}
+                                        onChange={(e) => setLiveSessionForm({ ...liveSessionForm, title: e.target.value })}
+                                        placeholder="Live session title"
+                                        required
+                                        className="bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-blue-500 shadow-sm"
+                                    />
+                                    <input
+                                        type="datetime-local"
+                                        value={liveSessionForm.starts_at}
+                                        onChange={(e) => setLiveSessionForm({ ...liveSessionForm, starts_at: e.target.value })}
+                                        required
+                                        className="bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-blue-500 shadow-sm"
+                                    />
+                                    <input
+                                        type="number"
+                                        min="15"
+                                        max="300"
+                                        value={liveSessionForm.duration_minutes}
+                                        onChange={(e) => setLiveSessionForm({ ...liveSessionForm, duration_minutes: e.target.value })}
+                                        className="bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 focus:outline-none focus:border-blue-500 shadow-sm"
+                                    />
+                                    <select
+                                        value={liveSessionForm.status}
+                                        onChange={(e) => setLiveSessionForm({ ...liveSessionForm, status: e.target.value })}
+                                        className="bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 focus:outline-none focus:border-blue-500 shadow-sm"
+                                    >
+                                        <option value="scheduled">Scheduled</option>
+                                        <option value="live">Live</option>
+                                        <option value="completed">Completed</option>
+                                        <option value="cancelled">Cancelled</option>
+                                    </select>
+                                    <textarea
+                                        value={liveSessionForm.description}
+                                        onChange={(e) => setLiveSessionForm({ ...liveSessionForm, description: e.target.value })}
+                                        rows="3"
+                                        placeholder="Session description or host instructions"
+                                        className="md:col-span-2 bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-blue-500 shadow-sm"
+                                    />
+                                    <div className="md:col-span-2 flex justify-end">
+                                        <button
+                                            type="submit"
+                                            disabled={savingLiveSession}
+                                            className="px-4 py-2 rounded-xl bg-[#0f172a] hover:bg-[#1e293b] text-white font-bold text-xs transition shadow-sm"
+                                        >
+                                            {savingLiveSession ? 'Scheduling...' : 'Create Live Class'}
+                                        </button>
+                                    </div>
+                                </form>
+
+                                {selectedCourse?.live_sessions?.length > 0 && (
+                                    <div className="space-y-3 pt-2 border-t border-slate-200/80">
+                                        <h4 className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Scheduled Sessions</h4>
+                                        {selectedCourse.live_sessions.map((session) => (
+                                            <div key={session.id} className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 rounded-xl border border-slate-200 bg-white p-3">
+                                                <div>
+                                                    <div className="text-xs font-bold text-[#0f172a]">{session.title}</div>
+                                                    <div className="text-[11px] text-slate-500 mt-1">
+                                                        {session.starts_at ? new Date(session.starts_at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : 'Schedule not set'}
+                                                        {' • '}
+                                                        {session.status}
+                                                    </div>
+                                                    {session.description && <div className="text-[11px] text-slate-500 mt-1">{session.description}</div>}
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    {session.join_url ? (
+                                                        <a
+                                                            href={buildLiveClassLink(session.join_url)}
+                                                            target="_blank"
+                                                            rel="noreferrer"
+                                                            className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-bold"
+                                                        >
+                                                            Join
+                                                        </a>
+                                                    ) : null}
+                                                    {session.share_url && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => navigator.clipboard?.writeText(buildLiveClassLink(session.share_url))}
+                                                            className="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-bold"
+                                                        >
+                                                            Copy link
+                                                        </button>
+                                                    )}
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleDeleteLiveSession(session.id)}
+                                                        className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition"
+                                                        title="Delete session"
+                                                    >
+                                                        <Trash2 className="w-3.5 h-3.5" />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+
                             {/* Sections & Lessons List */}
                             <div className="space-y-4">
                                 {selectedCourse.sections?.map((sec, sIdx) => (
@@ -521,7 +845,7 @@ export default function CourseBuilderPage() {
                                                     <Edit3 className="w-4 h-4" />
                                                 </button>
                                                 <button
-                                                    onClick={() => setLessonModalSectionId(sec.id)}
+                                                    onClick={() => openAddLessonModal(sec.id)}
                                                     className="px-3 py-1.5 rounded-xl bg-[#0f172a] hover:bg-[#1e293b] text-white font-bold text-xs flex items-center gap-1.5 transition shadow-sm"
                                                 >
                                                     <Plus className="w-3.5 h-3.5 text-cyan-400" />
@@ -953,12 +1277,10 @@ export default function CourseBuilderPage() {
             {/* Modal: Add or Edit Lesson */}
             {(lessonModalSectionId || editingLessonModal) && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-in fade-in">
-                    <div className="relative w-full max-w-lg bg-white border border-slate-200 rounded-2xl p-6 sm:p-8 shadow-2xl space-y-4">
+                    <div className="relative w-full max-w-lg bg-white border border-slate-200 rounded-2xl p-6 sm:p-8 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto overscroll-contain">
                         <button
-                            onClick={() => {
-                                setLessonModalSectionId(null);
-                                setEditingLessonModal(null);
-                            }}
+                            type="button"
+                            onClick={closeLessonModal}
                             className="absolute top-4 right-4 p-2 rounded-full bg-slate-100 text-slate-500 hover:text-slate-800"
                         >
                             <X className="w-5 h-5" />
@@ -966,19 +1288,49 @@ export default function CourseBuilderPage() {
 
                         <div>
                             <span className="text-[11px] font-semibold text-blue-700 bg-blue-50 px-2.5 py-0.5 rounded-full border border-blue-200">
-                                {editingLessonModal ? 'Edit Video Lesson' : 'Add Video Lesson'}
+                                {lessonKind
+                                    ? `${editingLessonModal ? 'Edit' : 'Add'} ${LESSON_KINDS.find((k) => k.id === lessonKind)?.label}`
+                                    : 'Add Lesson'}
                             </span>
                             <h3 className="text-lg font-bold text-[#0f172a] mt-1">
-                                {editingLessonModal ? 'Update Lesson Content' : 'New Lesson Details'}
+                                {!lessonKind
+                                    ? 'What do you want to add?'
+                                    : editingLessonModal ? 'Update Lesson Content' : 'New Lesson Details'}
                             </h3>
                         </div>
 
+                        {!lessonKind && (
+                            <div className="space-y-2.5">
+                                {LESSON_KINDS.map(({ id, label, description, Icon }) => (
+                                    <button
+                                        key={id}
+                                        type="button"
+                                        onClick={() => chooseLessonKind(id)}
+                                        className="w-full flex items-start gap-3 rounded-xl border border-slate-200 bg-white p-4 text-left hover:border-blue-400 hover:bg-blue-50/50 transition shadow-sm"
+                                    >
+                                        <span className="mt-0.5 rounded-lg bg-blue-50 border border-blue-200 p-2 text-blue-700">
+                                            <Icon className="w-4 h-4" />
+                                        </span>
+                                        <span>
+                                            <span className="block text-sm font-bold text-[#0f172a]">{label}</span>
+                                            <span className="block text-xs text-slate-500 mt-0.5">{description}</span>
+                                        </span>
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+
+                        {lessonKind && (
                         <form onSubmit={editingLessonModal ? handleSaveLesson : handleAddLesson} className="space-y-3">
                             <div>
                                 <label className="text-xs font-semibold text-slate-700 block mb-1">Lesson Title</label>
                                 <input
                                     type="text"
-                                    placeholder="e.g. Lesson 2: Network Packet Inspection & SIEM Triage"
+                                    placeholder={lessonKind === 'mcq'
+                                        ? 'e.g. Quiz 1: Network Security Basics'
+                                        : lessonKind === 'written'
+                                            ? 'e.g. Assignment 1: Incident Response Plan'
+                                            : 'e.g. Lesson 2: Network Packet Inspection & SIEM Triage'}
                                     value={newLessonTitle}
                                     onChange={(e) => setNewLessonTitle(e.target.value)}
                                     required
@@ -986,6 +1338,7 @@ export default function CourseBuilderPage() {
                                 />
                             </div>
 
+                            {lessonKind === 'video' && (
                             <div>
                                 <label className="text-xs font-semibold text-slate-700 block mb-1">YouTube Video Link or ID</label>
                                 <input
@@ -993,9 +1346,11 @@ export default function CourseBuilderPage() {
                                     placeholder="https://www.youtube.com/watch?v=VIDEO_ID or youtu.be/ID"
                                     value={newLessonYoutubeUrl}
                                     onChange={(e) => setNewLessonYoutubeUrl(e.target.value)}
+                                    required
                                     className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 font-mono placeholder-slate-400 focus:outline-none focus:border-blue-500 shadow-sm"
                                 />
                             </div>
+                            )}
 
                             <div>
                                 <label className="text-xs font-semibold text-slate-700 block mb-1">PDF Learning Material URL (optional)</label>
@@ -1008,6 +1363,7 @@ export default function CourseBuilderPage() {
                                 />
                             </div>
 
+                            {lessonKind === 'video' && (
                             <div className="grid grid-cols-2 gap-3">
                                 <div>
                                     <label className="text-xs font-semibold text-slate-700 block mb-1">Video Duration (Seconds)</label>
@@ -1031,13 +1387,25 @@ export default function CourseBuilderPage() {
                                     />
                                 </div>
                             </div>
+                            )}
 
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div className={`grid gap-3 ${lessonKind === 'video' ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1'}`}>
+                                {lessonKind === 'video' && (
                                 <div>
-                                    <label className="text-xs font-semibold text-slate-700 block mb-1">Assessment Type</label>
+                                    <label className="text-xs font-semibold text-slate-700 block mb-1">Quiz after the video (optional)</label>
                                     <select
                                         value={newLessonAssessmentType}
-                                        onChange={(e) => setNewLessonAssessmentType(e.target.value)}
+                                        onChange={(e) => {
+                                            const nextType = e.target.value;
+                                            setNewLessonAssessmentType(nextType);
+                                            setNewLessonAssessmentEditor((current) => {
+                                                if (nextType === 'none') {
+                                                    return { max_attempts: 3, passing_score: 70, questions: [] };
+                                                }
+                                                if (current.questions?.length) return current;
+                                                return createAssessmentEditor(nextType);
+                                            });
+                                        }}
                                         className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:border-blue-500 shadow-sm"
                                     >
                                         <option value="none">No Assessment</option>
@@ -1045,24 +1413,135 @@ export default function CourseBuilderPage() {
                                         <option value="written">Written Response</option>
                                     </select>
                                 </div>
+                                )}
 
-                                <div>
-                                    <label className="text-xs font-semibold text-slate-700 block mb-1">Assessment Config (JSON)</label>
-                                    <input
-                                        type="text"
-                                        placeholder='{"passing_score":70,"max_attempts":3,"questions":[{"question":"...","options":["A","B"],"correct_answer":"A"}]}'
-                                        value={newLessonAssessmentConfig}
-                                        onChange={(e) => setNewLessonAssessmentConfig(e.target.value)}
-                                        className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-blue-500 shadow-sm"
-                                    />
+                                {newLessonAssessmentType !== 'none' && (
+                                <div className={`grid gap-2 ${newLessonAssessmentType === 'mcq' ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                                    <div>
+                                        <label className="text-xs font-semibold text-slate-700 block mb-1">Attempts allowed</label>
+                                        <input
+                                            type="number"
+                                            min="1"
+                                            value={newLessonAssessmentEditor.max_attempts || 3}
+                                            onChange={(e) => setNewLessonAssessmentEditor((current) => ({ ...current, max_attempts: Number(e.target.value) || 1 }))}
+                                            className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:border-blue-500 shadow-sm"
+                                        />
+                                    </div>
+                                    {newLessonAssessmentType === 'mcq' && (
+                                    <div>
+                                        <label className="text-xs font-semibold text-slate-700 block mb-1">Pass %</label>
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            max="100"
+                                            value={newLessonAssessmentEditor.passing_score || 70}
+                                            onChange={(e) => setNewLessonAssessmentEditor((current) => ({ ...current, passing_score: Number(e.target.value) || 0 }))}
+                                            className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:border-blue-500 shadow-sm"
+                                        />
+                                    </div>
+                                    )}
                                 </div>
+                                )}
                             </div>
+                            {newLessonAssessmentType === 'written' && (
+                                <p className="text-[11px] text-slate-500 -mt-1">Written answers are graded by the instructor in Instructor Reviews.</p>
+                            )}
+
+                            {newLessonAssessmentType !== 'none' && (
+                                <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
+                                    <div className="flex items-center justify-between gap-2">
+                                        <h4 className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-600">
+                                            {newLessonAssessmentType === 'mcq' ? 'Question Builder' : 'Written Prompt'}
+                                        </h4>
+                                        <button
+                                            type="button"
+                                            onClick={addAssessmentQuestion}
+                                            className="inline-flex items-center gap-1 rounded-lg border border-blue-200 bg-blue-50 px-2.5 py-1 text-[10px] font-bold text-blue-700 hover:bg-blue-100"
+                                        >
+                                            <Plus className="w-3 h-3" /> Add question
+                                        </button>
+                                    </div>
+
+                                    {(newLessonAssessmentEditor.questions || []).map((question, questionIndex) => (
+                                        <div key={questionIndex} className="rounded-xl border border-slate-200 bg-white p-3 space-y-3">
+                                            <div className="flex items-center justify-between gap-2">
+                                                <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">Question {questionIndex + 1}</span>
+                                                {newLessonAssessmentEditor.questions.length > 1 && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => removeAssessmentQuestion(questionIndex)}
+                                                        className="text-[10px] font-semibold text-red-600 hover:text-red-700"
+                                                    >
+                                                        Remove
+                                                    </button>
+                                                )}
+                                            </div>
+
+                                            <div>
+                                                <label className="text-[10px] font-semibold text-slate-600 block mb-1">Question text</label>
+                                                <textarea
+                                                    rows="2"
+                                                    value={question.question || ''}
+                                                    onChange={(e) => updateAssessmentQuestion(questionIndex, 'question', e.target.value)}
+                                                    placeholder={newLessonAssessmentType === 'mcq' ? 'Example: Which control best reduces exposure to credential stuffing?' : 'Example: Describe how you would design an AI risk review process.'}
+                                                    className="w-full bg-white border border-slate-200 rounded-xl p-2.5 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-blue-500 shadow-sm"
+                                                />
+                                            </div>
+
+                                            {newLessonAssessmentType === 'mcq' ? (
+                                                <div className="space-y-2">
+                                                    {(question.options || ['', '']).map((option, optionIndex) => (
+                                                        <div key={optionIndex} className="flex items-center gap-2">
+                                                            <input
+                                                                type="radio"
+                                                                name={`correct-answer-${questionIndex}`}
+                                                                checked={question.correct_answer === option}
+                                                                onChange={() => updateAssessmentQuestion(questionIndex, 'correct_answer', option)}
+                                                                className="accent-blue-600"
+                                                            />
+                                                            <input
+                                                                type="text"
+                                                                value={option}
+                                                                onChange={(e) => updateAssessmentOption(questionIndex, optionIndex, e.target.value)}
+                                                                placeholder={`Option ${optionIndex + 1}`}
+                                                                className="flex-1 bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-blue-500 shadow-sm"
+                                                            />
+                                                        </div>
+                                                    ))}
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => updateAssessmentQuestion(questionIndex, 'options', [...(question.options || []), ''])}
+                                                        className="text-[10px] font-semibold text-blue-700 hover:text-blue-800"
+                                                    >
+                                                        + Add option
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <div>
+                                                    <label className="text-[10px] font-semibold text-slate-600 block mb-1">Instruction text shown under the question</label>
+                                                    <textarea
+                                                        rows="2"
+                                                        value={question.instructions || ''}
+                                                        onChange={(e) => updateAssessmentQuestion(questionIndex, 'instructions', e.target.value)}
+                                                        placeholder="Optional guidance for the student, such as: respond in 150-300 words and explain trade-offs."
+                                                        className="w-full bg-white border border-slate-200 rounded-xl p-2.5 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-blue-500 shadow-sm"
+                                                    />
+                                                </div>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
 
                             <div>
-                                <label className="text-xs font-semibold text-slate-700 block mb-1">Lesson Notes & Summary</label>
+                                <label className="text-xs font-semibold text-slate-700 block mb-1">
+                                    {lessonKind === 'video' ? 'Lesson Notes & Summary' : 'Instructions for students'}
+                                </label>
                                 <textarea
                                     rows="2"
-                                    placeholder="Summary of topics covered in this lesson..."
+                                    placeholder={lessonKind === 'video'
+                                        ? 'Summary of topics covered in this lesson...'
+                                        : 'e.g. Answer every question. You have 3 attempts; 70% is needed to pass.'}
                                     value={newLessonDesc}
                                     onChange={(e) => setNewLessonDesc(e.target.value)}
                                     className="w-full bg-white border border-slate-200 rounded-xl p-3 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-blue-500 shadow-sm"
@@ -1070,12 +1549,18 @@ export default function CourseBuilderPage() {
                             </div>
 
                             <div className="pt-2 flex justify-end gap-2 border-t border-slate-100">
+                                {!editingLessonModal && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setLessonKind(null)}
+                                        className="mr-auto px-3 py-2 rounded-xl text-blue-700 text-xs font-semibold hover:bg-blue-50 flex items-center gap-1"
+                                    >
+                                        <ArrowLeft className="w-3.5 h-3.5" /> Change type
+                                    </button>
+                                )}
                                 <button
                                     type="button"
-                                    onClick={() => {
-                                        setLessonModalSectionId(null);
-                                        setEditingLessonModal(null);
-                                    }}
+                                    onClick={closeLessonModal}
                                     className="px-4 py-2 rounded-xl bg-slate-100 text-slate-700 text-xs font-semibold hover:bg-slate-200"
                                 >
                                     Cancel
@@ -1089,6 +1574,7 @@ export default function CourseBuilderPage() {
                                 </button>
                             </div>
                         </form>
+                        )}
                     </div>
                 </div>
             )}

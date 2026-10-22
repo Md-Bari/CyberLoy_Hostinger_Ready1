@@ -4,9 +4,10 @@ import { api } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import {
     BookOpen, CheckCircle2, Lock, Unlock, Play, ArrowLeft, ArrowRight,
-    ShieldCheck, Sparkles, CreditCard, Clock, BarChart2, Award, FileText, MessageSquare
+    ShieldCheck, Sparkles, CreditCard, Clock, BarChart2, Award, FileText, MessageSquare, Video, CalendarDays, Copy
 } from 'lucide-react';
 import PaymentModal from '../components/PaymentModal';
+import { buildLiveClassLink } from '../lib/liveClass';
 
 export default function CourseDetailPage() {
     const { id } = useParams();
@@ -223,6 +224,58 @@ export default function CourseDetailPage() {
                     </div>
                 </div>
             </div>
+
+            {course.live_sessions?.length > 0 && (
+                <div className="bg-white border border-slate-200/80 rounded-2xl p-6 shadow-sm">
+                    <div className="flex items-center justify-between gap-3 pb-4 border-b border-slate-100">
+                        <div className="flex items-center gap-2">
+                            <Video className="w-5 h-5 text-blue-600" />
+                            <h2 className="text-xl font-bold text-[#0f172a]">Live Class Sessions</h2>
+                        </div>
+                        <span className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">{course.live_sessions.length} scheduled</span>
+                    </div>
+
+                    <div className="mt-4 space-y-3">
+                        {course.live_sessions.map((session) => (
+                            <div key={session.id} className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 rounded-2xl border border-slate-200 bg-[#f8fafc] p-4">
+                                <div className="space-y-1">
+                                    <div className="text-sm font-bold text-[#0f172a]">{session.title}</div>
+                                    <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
+                                        <CalendarDays className="w-3.5 h-3.5" />
+                                        <span>{session.starts_at ? new Date(session.starts_at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : 'Schedule pending'}</span>
+                                        <span>•</span>
+                                        <span className="capitalize">{session.status}</span>
+                                    </div>
+                                    {session.description && <p className="text-[11px] text-slate-500">{session.description}</p>}
+                                </div>
+                                <div className="flex flex-wrap items-center gap-2">
+                                    {session.join_url ? (
+                                        <a
+                                            href={buildLiveClassLink(session.join_url)}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#0f172a] px-3 py-2 text-[11px] font-bold text-white hover:bg-[#1e293b]"
+                                        >
+                                            <Video className="w-3.5 h-3.5" />
+                                            Join Live Class
+                                        </a>
+                                    ) : null}
+                                    {session.share_url && (
+                                        <button
+                                            type="button"
+                                            onClick={() => navigator.clipboard?.writeText(buildLiveClassLink(session.share_url))}
+                                            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-[11px] font-bold text-slate-700 hover:bg-slate-50"
+                                        >
+                                            <Copy className="w-3.5 h-3.5" />
+                                            Copy Link
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
 
             {/* Course Curriculum & Sections */}
             <div className="space-y-6">

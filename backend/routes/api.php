@@ -27,6 +27,7 @@ use App\Http\Controllers\Api\CouponController;
 */
 
 // Public Authentication & Course Catalog
+Route::post('/register', [AuthController::class, 'register'])->middleware('throttle:10,1');
 Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:10,1');
 Route::post('/refresh', [AuthController::class, 'refresh'])->middleware('throttle:10,1');
 Route::post('/password/forgot', [AuthController::class, 'sendPasswordResetLink'])->middleware('throttle:6,1');
@@ -80,6 +81,11 @@ Route::middleware('auth:api')->group(function () {
     Route::post('/coupons/validate', [CouponController::class, 'validate']);
     Route::get('/courses/{courseId}/discussions', [CourseDiscussionController::class, 'index']);
     Route::post('/courses/{courseId}/discussions', [CourseDiscussionController::class, 'store']);
+    Route::get('/courses/{courseId}/live-sessions', [CourseController::class, 'getCourseLiveSessions']);
+    Route::post('/courses/{courseId}/live-sessions', [AdminController::class, 'createCourseLiveSession']);
+    Route::put('/live-sessions/{id}', [AdminController::class, 'updateCourseLiveSession']);
+    Route::post('/live-sessions/{id}/join', [AdminController::class, 'joinCourseLiveSession']);
+    Route::delete('/live-sessions/{id}', [AdminController::class, 'deleteCourseLiveSession']);
     Route::get('/payments/checkout/{sessionId}', [CourseController::class, 'checkoutStatus']);
 
     // Uploads

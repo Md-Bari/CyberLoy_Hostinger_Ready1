@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Models\Course;
+use App\Models\CourseLiveSession;
 use App\Models\CourseSection;
 use App\Models\Lesson;
 use App\Models\LessonAssessmentSubmission;
@@ -16,6 +17,9 @@ use App\Models\Certificate;
 use App\Models\Notification;
 use App\Models\AuditLog;
 use App\Services\CourseCompletionService;
+use Agence104\LiveKit\AccessToken;
+use Agence104\LiveKit\AccessTokenOptions;
+use Agence104\LiveKit\VideoGrant;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
@@ -66,16 +70,18 @@ class AdminController extends Controller
             $date = \Carbon\Carbon::now()->subMonths($i);
             $monthName = $date->format('M');
             $yearMonth = $date->format('Y-m');
+            $monthStart = $date->copy()->startOfMonth()->toDateTimeString();
+            $monthEnd = $date->copy()->endOfMonth()->toDateTimeString();
 
             $rev = Payment::where('status', 'completed')
-                ->whereRaw("DATE_FORMAT(created_at, '%Y-%m') = ?", [$yearMonth])
+                ->whereBetween('created_at', [$monthStart, $monthEnd])
                 ->sum('amount');
 
-            $enr = Enrollment::whereRaw("DATE_FORMAT(created_at, '%Y-%m') = ?", [$yearMonth])
+            $enr = Enrollment::whereBetween('created_at', [$monthStart, $monthEnd])
                 ->count();
 
             $comp = Enrollment::where('status', 'completed')
-                ->whereRaw("DATE_FORMAT(updated_at, '%Y-%m') = ?", [$yearMonth])
+                ->whereBetween('updated_at', [$monthStart, $monthEnd])
                 ->count();
 
             $monthlyTrends[] = [
@@ -394,6 +400,151 @@ class AdminController extends Controller
         return response()->json($course);
     }
 
+    /**
+     * Issue a LiveKit token for the current user. Every participant gets their own
+     * identity — LiveKit disconnects the older connection when two share one.
+     */
+    public function joinCourseLiveSession(Request $request, $id)
+    {
+        $session = CourseLiveSession::with('course')->findOrFail($id);
+        $course = $session->course;
+        $user = $request->user();
+
+        $isHost = $user->role === 'admin'
+            || ($user->role === 'instructor' && (int) $course->instructor_id === (int) $user->id);
+        $isPaidStudent = Enrollment::where('user_id', $user->id)
+            ->where('course_id', $course->id)
+            ->where('payment_status', 'paid')
+            ->exists();
+
+        if (!$isHost && !$isPaidStudent) {
+            return response()->json(['message' => 'Enroll in this course to join its live classes.'], 403);
+        }
+        if (!$isHost && in_array($session->status, ['completed', 'cancelled'], true)) {
+            return response()->json(['message' => 'This live class has ' . $session->status . '.'], 410);
+        }
+
+        $apiKey = config('lms.livekit_api_key');
+        $apiSecret = config('lms.livekit_api_secret');
+        $livekitUrl = config('lms.livekit_url');
+        if (!$apiKey || !$apiSecret || !$livekitUrl) {
+            return response()->json(['message' => 'Live classes are not configured on this server.'], 503);
+        }
+
+        $tokenOptions = (new AccessTokenOptions())
+            ->setIdentity('user-' . $user->id)
+            ->setName($user->name)
+            ->setMetadata(json_encode(['role' => $user->role, 'is_host' => $isHost]))
+            ->setTtl(60 * 60 * 6);
+
+        $videoGrant = (new VideoGrant())
+            ->setRoomJoin()
+            ->setRoomName($session->room_name)
+            ->setCanPublish()
+            ->setCanSubscribe()
+            ->setCanPublishData()
+            ->setRoomAdmin($isHost);
+
+        $token = (new AccessToken($apiKey, $apiSecret))
+            ->init($tokenOptions)
+            ->setGrant($videoGrant)
+            ->toJwt();
+
+        return response()->json([
+            'token' => $token,
+            'ws_url' => rtrim($livekitUrl, '/'),
+            'room_name' => $session->room_name,
+            'title' => $session->title,
+            'course_id' => $course->id,
+            'course_title' => $course->title,
+            'host_name' => $session->host_name,
+            'is_host' => $isHost,
+            'name' => $user->name,
+        ]);
+    }
+
+    public function createCourseLiveSession(Request $request, $courseId)
+    {
+        $request->validate([
+            'title' => 'required|string|max:255',
+            'description' => 'nullable|string',
+            'starts_at' => 'nullable|date',
+            'duration_minutes' => 'nullable|integer|min:15|max:300',
+            'status' => 'nullable|in:scheduled,live,completed,cancelled',
+        ]);
+
+        $course = Course::findOrFail($courseId);
+        $actor = $request->user();
+        if (!$actor || ($actor->role !== 'admin' && !($actor->role === 'instructor' && (int) $course->instructor_id === (int) $actor->id))) {
+            return response()->json(['message' => 'Only admins or the assigned instructor can schedule sessions.'], 403);
+        }
+
+        $startsAt = $request->filled('starts_at') ? \Carbon\Carbon::parse($request->starts_at) : now()->addHour();
+        $durationMinutes = (int) ($request->duration_minutes ?? 60);
+        $roomName = $request->room_name ?? 'course-' . $course->id . '-' . Str::slug($request->title) . '-' . now()->format('YmdHis');
+        $session = CourseLiveSession::create([
+            'course_id' => $course->id,
+            'title' => $request->title,
+            'description' => $request->description,
+            'room_name' => $roomName,
+            'host_name' => $actor->name,
+            'status' => $request->status ?? 'scheduled',
+            'starts_at' => $startsAt,
+            'ends_at' => $startsAt->copy()->addMinutes($durationMinutes),
+            'created_by' => $actor->id,
+        ]);
+
+        return response()->json($session, 201);
+    }
+
+    public function updateCourseLiveSession(Request $request, $id)
+    {
+        $session = CourseLiveSession::findOrFail($id);
+        $course = $session->course;
+        $actor = $request->user();
+
+        if (!$actor || ($actor->role !== 'admin' && !($actor->role === 'instructor' && (int) $course->instructor_id === (int) $actor->id))) {
+            return response()->json(['message' => 'Only admins or the assigned instructor can update live sessions.'], 403);
+        }
+
+        $request->validate([
+            'title' => 'nullable|string|max:255',
+            'description' => 'nullable|string',
+            'starts_at' => 'nullable|date',
+            'duration_minutes' => 'nullable|integer|min:15|max:300',
+            'status' => 'nullable|in:scheduled,live,completed,cancelled',
+        ]);
+
+        $updates = $request->only(['title', 'description', 'status']);
+        if ($request->filled('starts_at')) {
+            $startsAt = \Carbon\Carbon::parse($request->starts_at);
+            $updates['starts_at'] = $startsAt;
+            $durationMinutes = (int) ($request->duration_minutes ?? ($session->starts_at && $session->ends_at ? max(15, (int) $session->starts_at->diffInMinutes($session->ends_at)) : 60));
+            $updates['ends_at'] = $startsAt->copy()->addMinutes($durationMinutes);
+        }
+
+        if ($request->filled('duration_minutes') && $session->starts_at) {
+            $updates['ends_at'] = $session->starts_at->copy()->addMinutes((int) $request->duration_minutes);
+        }
+
+        $session->update($updates);
+        return response()->json($session);
+    }
+
+    public function deleteCourseLiveSession(Request $request, $id)
+    {
+        $session = CourseLiveSession::findOrFail($id);
+        $course = $session->course;
+        $actor = $request->user();
+
+        if (!$actor || ($actor->role !== 'admin' && !($actor->role === 'instructor' && (int) $course->instructor_id === (int) $actor->id))) {
+            return response()->json(['message' => 'Only admins or the assigned instructor can delete live sessions.'], 403);
+        }
+
+        $session->delete();
+        return response()->json(['message' => 'Live session deleted successfully.']);
+    }
+
     public function deleteCourse($id)
     {
         $course = Course::findOrFail($id);
@@ -504,6 +655,14 @@ class AdminController extends Controller
 
         if ($request->has('assessment_config')) {
             $data['assessment_config'] = $request->assessment_config ?? [];
+        }
+
+        // Keep the completion rule in sync with the lesson type, as addLesson does;
+        // otherwise a lesson whose video was removed could never be completed.
+        if ($request->has('youtube_url') || $request->has('assessment_type')) {
+            $videoId = array_key_exists('youtube_video_id', $data) ? $data['youtube_video_id'] : $lesson->youtube_video_id;
+            $assessmentType = $data['assessment_type'] ?? $lesson->assessment_type ?? 'none';
+            $data['completion_type'] = $videoId ? 'video' : ($assessmentType === 'none' ? 'content' : 'manual');
         }
 
         $lesson->update($data);

@@ -14,6 +14,9 @@ class LessonAssessmentSubmission extends Model
         'course_id',
         'lesson_id',
         'answers',
+        'question_results',
+        'file_urls',
+        'submission_text',
         'score',
         'status',
         'teacher_notes',
@@ -23,6 +26,8 @@ class LessonAssessmentSubmission extends Model
 
     protected $casts = [
         'answers' => 'array',
+        'question_results' => 'array',
+        'file_urls' => 'array',
         'score' => 'integer',
         'attempt_number' => 'integer',
         'passed' => 'boolean',

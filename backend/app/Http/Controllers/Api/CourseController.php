@@ -213,6 +213,8 @@ class CourseController extends Controller
             $q->orderBy('sort_order')->with(['lessons' => function ($lq) {
                 $lq->orderBy('sort_order');
             }]);
+        }, 'liveSessions' => function ($q) {
+            $q->orderBy('starts_at');
         }])->findOrFail($id);
         $isCourseInstructor = $user && $user->role === 'instructor'
             && (int) $course->instructor_id === (int) $user->id;
@@ -301,8 +303,31 @@ class CourseController extends Controller
         $course->progress_percentage = $totalLessons > 0 ? (int) round(($completedLessonsCount / $totalLessons) * 100) : 0;
         $course->next_lesson_id = $firstIncompleteLessonId ?? ($allFlattenedLessons[0]->id ?? null);
 
+        $course->live_sessions = $course->liveSessions->map(function ($session) use ($isAdmin, $isPaid) {
+            // $isAdmin also covers the course's assigned instructor.
+            if (!($isAdmin || $isPaid)) {
+                $session->makeHidden(['join_url', 'share_url']);
+            }
+            return $session;
+        })->values();
+
         $this->hideLockedLessonContent($course, $isCourseUnlocked);
         return response()->json($this->hideAssessmentAnswers($course));
+    }
+
+    public function getCourseLiveSessions(Request $request, $courseId)
+    {
+        $user = $this->getAuthenticatedUser($request);
+        $course = Course::findOrFail($courseId);
+        $isAdmin = $user && $user->role === 'admin';
+        $isInstructor = $user && $user->role === 'instructor' && (int) $course->instructor_id === (int) $user->id;
+
+        if (!$isAdmin && !$isInstructor && (!$user || !Enrollment::where('user_id', $user->id)->where('course_id', $course->id)->where('payment_status', 'paid')->exists())) {
+            return response()->json(['message' => 'Access denied. Enroll and pay to view live sessions.'], 403);
+        }
+
+        $sessions = $course->liveSessions()->orderBy('starts_at')->get();
+        return response()->json($sessions);
     }
 
     public function getLesson(Request $request, $courseId, $lessonId)
@@ -400,6 +425,7 @@ class CourseController extends Controller
             'id' => $submission->id,
             'status' => $submission->status,
             'answers' => $submission->answers,
+            'question_results' => $submission->question_results ?? [],
             'score' => $submission->score,
             'passed' => $submission->passed,
             'attempt_number' => $submission->attempt_number,
@@ -549,6 +575,7 @@ class CourseController extends Controller
         $score = null;
         $passed = false;
         $status = 'submitted';
+        $questionResults = [];
         if ($lesson->assessment_type === 'mcq') {
             $correct = 0;
             foreach (array_values($questions) as $index => $question) {
@@ -559,10 +586,22 @@ class CourseController extends Controller
                     || !in_array($question['correct_answer'], $question['options'], true)) {
                     return response()->json(['message' => 'MCQ answer keys must match one of the configured options.'], 422);
                 }
-                if (isset($request->answers[$index])
-                    && (string) $request->answers[$index] === (string) $question['correct_answer']) {
+
+                $selectedAnswer = $request->answers[$index] ?? null;
+                $isCorrect = isset($selectedAnswer)
+                    && (string) $selectedAnswer === (string) $question['correct_answer'];
+                if ($isCorrect) {
                     $correct++;
                 }
+
+                $questionResults[] = [
+                    'question' => $question['question'] ?? $question['text'] ?? ('Question ' . ($index + 1)),
+                    'selected_answer' => $selectedAnswer,
+                    'correct_answer' => $question['correct_answer'] ?? null,
+                    'is_correct' => $isCorrect,
+                    'score' => $isCorrect ? 1 : 0,
+                    'max_score' => 1,
+                ];
             }
             $score = (int) round(($correct / count($questions)) * 100);
             $passingScore = (int) ($lesson->assessment_config['passing_score'] ?? 70);
@@ -570,7 +609,7 @@ class CourseController extends Controller
             $status = 'reviewed';
         }
 
-        $submission = DB::transaction(function () use ($user, $course, $lesson, $request, $maxAttempts, $score, $passed, $status) {
+        $submission = DB::transaction(function () use ($user, $course, $lesson, $request, $maxAttempts, $score, $passed, $status, $questionResults) {
             DB::table('users')->where('id', $user->id)->lockForUpdate()->first();
 
             $enrollment = Enrollment::where('user_id', $user->id)
@@ -600,6 +639,7 @@ class CourseController extends Controller
                 'course_id' => $course->id,
                 'lesson_id' => $lesson->id,
                 'answers' => $request->answers ?? [],
+                'question_results' => $questionResults,
                 'file_urls' => $request->file_urls ?? [],
                 'submission_text' => $request->submission_text ?? null,
                 'score' => $score,

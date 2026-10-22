@@ -4,7 +4,11 @@ export const getApiBaseUrl = () => {
     }
 
     if (typeof window !== 'undefined') {
-        return `${window.location.origin.replace(/\/+$/, '')}/api`;
+        const origin = window.location.origin.replace(/\/+$/, '');
+        // In dev, Vite proxies /api, so same-origin also works from LAN devices.
+        if (import.meta.env?.DEV || origin.includes('localhost') || origin.includes('127.0.0.1')) {
+            return `${origin}/api`;
+        }
     }
 
     return 'http://127.0.0.1:8010/api';
@@ -148,6 +152,17 @@ export const api = {
     payCourse: (courseId, paymentData = {}) => request(`/courses/${courseId}/pay`, { method: 'POST', body: JSON.stringify(paymentData) }),
     confirmCheckout: (sessionId) => request(`/payments/checkout/${encodeURIComponent(sessionId)}`),
     getCourseDiscussions: (courseId) => request(`/courses/${courseId}/discussions`),
+    getCourseLiveSessions: (courseId) => request(`/courses/${courseId}/live-sessions`),
+    createCourseLiveSession: (courseId, data) => request(`/courses/${courseId}/live-sessions`, {
+        method: 'POST',
+        body: JSON.stringify(data),
+    }),
+    updateCourseLiveSession: (sessionId, data) => request(`/live-sessions/${sessionId}`, {
+        method: 'PUT',
+        body: JSON.stringify(data),
+    }),
+    deleteCourseLiveSession: (sessionId) => request(`/live-sessions/${sessionId}`, { method: 'DELETE' }),
+    joinCourseLiveSession: (sessionId) => request(`/live-sessions/${sessionId}/join`, { method: 'POST' }),
     postCourseDiscussion: (courseId, body, parentId = null) => request(`/courses/${courseId}/discussions`, {
         method: 'POST',
         body: JSON.stringify({ body, parent_id: parentId }),
@@ -186,6 +201,10 @@ export const api = {
     deleteSection: (sectionId) => request(`/admin/sections/${sectionId}`, { method: 'DELETE' }),
     addLesson: (sectionId, lessonData) => request(`/admin/sections/${sectionId}/lessons`, { method: 'POST', body: JSON.stringify(lessonData) }),
     updateLesson: (lessonId, lessonData) => request(`/admin/lessons/${lessonId}`, { method: 'PUT', body: JSON.stringify(lessonData) }),
+    deleteLesson: (lessonId) => request(`/admin/lessons/${lessonId}`, { method: 'DELETE' }),
+    // Names used by the Course Builder.
+    createSection: (courseId, sectionData) => api.addSection(courseId, sectionData),
+    createLesson: (sectionId, lessonData) => api.addLesson(sectionId, lessonData),
     // Project Plans & Tasks (ISO 27001 / Task Builder)
     getStudentProjectPlans: () => request('/project-plans'),
     getStudentProjectPlanDetails: (id) => request(`/project-plans/${id}`),

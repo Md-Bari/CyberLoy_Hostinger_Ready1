@@ -5,16 +5,35 @@ use Illuminate\Support\Str;
 // Suppress PHP 8.5 PDO deprecation notices
 error_reporting(E_ALL & ~E_DEPRECATED);
 
+$dbConnection = env('DB_CONNECTION');
+if (empty($dbConnection) && file_exists(database_path('database.sqlite'))) {
+    $dbConnection = 'sqlite';
+}
+if (empty($dbConnection)) {
+    $dbConnection = 'mysql';
+}
+
+$dbDatabase = env('DB_DATABASE');
+if (!empty($dbDatabase)) {
+    $isAbsolutePath = Str::startsWith($dbDatabase, DIRECTORY_SEPARATOR)
+        || preg_match('#^[A-Za-z]:[\\/]#', $dbDatabase) === 1;
+    if (!$isAbsolutePath) {
+        $dbDatabase = database_path($dbDatabase);
+    }
+} else {
+    $dbDatabase = database_path('database.sqlite');
+}
+
 return [
 
-    'default' => env('DB_CONNECTION', 'mysql'),
+    'default' => $dbConnection,
 
     'connections' => [
 
         'sqlite' => [
             'driver' => 'sqlite',
             'url' => env('DB_URL'),
-            'database' => env('DB_DATABASE', database_path('database.sqlite')),
+            'database' => $dbDatabase,
             'prefix' => '',
             'foreign_key_constraints' => env('DB_FOREIGN_KEYS', true),
         ],

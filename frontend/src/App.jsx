@@ -23,6 +23,7 @@ import CourseDiscussionsPage from './pages/CourseDiscussionsPage';
 import StudentDashboardPage from './pages/StudentDashboardPage';
 import PasswordResetPage from './pages/PasswordResetPage';
 import EmailVerifiedPage from './pages/EmailVerifiedPage';
+import LiveClassPage from './pages/LiveClassPage';
 
 
 function ProtectedRoute({ children, adminOnly = false, instructorOnly = false }) {
@@ -86,6 +87,7 @@ function AppContent() {
                 <Route path="/dashboard" element={<ProtectedRoute><LMSLayout><StudentDashboardPage /></LMSLayout></ProtectedRoute>} />
                 <Route path="/courses" element={<LMSLayout><CourseListPage /></LMSLayout>} />
                 <Route path="/courses/:id" element={<LMSLayout><CourseDetailPage /></LMSLayout>} />
+                <Route path="/live-class" element={<ProtectedRoute><LiveClassPage /></ProtectedRoute>} />
                 <Route path="/courses/:id/discussions" element={<ProtectedRoute><LMSLayout><CourseDiscussionsPage /></LMSLayout></ProtectedRoute>} />
                 <Route path="/instructor/reviews" element={<ProtectedRoute instructorOnly><LMSLayout><InstructorReviewPage /></LMSLayout></ProtectedRoute>} />
                 <Route path="/instructor/gradebook" element={<ProtectedRoute instructorOnly><LMSLayout><InstructorGradebookPage /></LMSLayout></ProtectedRoute>} />

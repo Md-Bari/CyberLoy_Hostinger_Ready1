@@ -22,11 +22,11 @@ class InstructorController extends Controller
 
         return LessonAssessmentSubmission::with([
             'user:id,name,email',
-            'lesson:id,title,section_id,assessment_type',
+            'lesson:id,title,section_id,assessment_type,assessment_config',
             'lesson.section:id,title,course_id',
         ])
             ->whereIn('course_id', $courseIds)
-            ->where('status', 'submitted')
+            ->whereIn('status', ['submitted', 'reviewed'])
             ->latest()
             ->paginate(30);
     }
@@ -44,18 +44,21 @@ class InstructorController extends Controller
             'You are not assigned to this course.'
         );
 
-        abort_unless($submission->status === 'submitted', 409, 'This submission has already been reviewed.');
-
         $validated = $request->validate([
-            'score' => 'required|integer|min:0|max:100',
-            'passed' => 'required|boolean',
+            'score' => 'nullable|integer|min:0|max:100',
+            'passed' => 'nullable|boolean',
             'teacher_notes' => 'nullable|string|max:10000',
         ]);
 
+        $finalScore = $validated['score'] ?? (int) ($submission->score ?? 0);
+        $finalPassed = array_key_exists('passed', $validated)
+            ? (bool) $validated['passed']
+            : (bool) $submission->passed;
+
         $submission->update([
-            'score' => $validated['score'],
-            'passed' => $validated['passed'],
-            'teacher_notes' => $validated['teacher_notes'] ?? null,
+            'score' => $finalScore,
+            'passed' => $finalPassed,
+            'teacher_notes' => $validated['teacher_notes'] ?? $submission->teacher_notes,
             'status' => 'reviewed',
         ]);
 

@@ -111,8 +111,14 @@ export default function LoginPage() {
                         {resendMessage && <p role="status" className="text-xs text-slate-300">{resendMessage}</p>}
                     </div>
                 )}
-                <div className="mt-5 text-center">
-                    <Link to="/reset-password" className="text-sm text-cyan-300 hover:underline">Forgot your password?</Link>
+                <div className="mt-5 text-center space-y-2">
+                    <div>
+                        <Link to="/reset-password" className="text-sm text-cyan-300 hover:underline">Forgot your password?</Link>
+                    </div>
+                    <div className="text-xs text-slate-400">
+                        Need a student account?{' '}
+                        <Link to="/register" className="text-cyan-400 hover:underline font-semibold">Create one here</Link>
+                    </div>
                 </div>
             </div>
         </div>

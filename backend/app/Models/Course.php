@@ -64,6 +64,11 @@ class Course extends Model
         return $this->hasMany(Payment::class);
     }
 
+    public function liveSessions()
+    {
+        return $this->hasMany(CourseLiveSession::class)->orderBy('starts_at');
+    }
+
     public function instructor()
     {
         return $this->belongsTo(User::class, 'instructor_id');

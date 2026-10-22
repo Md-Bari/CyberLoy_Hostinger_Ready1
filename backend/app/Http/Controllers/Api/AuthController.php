@@ -17,21 +17,22 @@ class AuthController extends Controller
     public function register(Request $request)
     {
         $currentUser = auth('api')->user();
+        $isAdminAction = (bool) ($currentUser && $currentUser->role === 'admin');
 
-        if (!$currentUser || $currentUser->role !== 'admin') {
+        if (!$isAdminAction && $request->filled('role') && strtolower((string) $request->role) !== 'user') {
             return response()->json([
-                'message' => 'Only administrators can create new users.',
+                'message' => 'Students can only register as learners.',
             ], 403);
         }
 
         $request->validate([
             'name'     => 'required|string|max:255',
             'email'    => 'required|string|email|max:255|unique:users',
-            'password' => 'required|string|min:12',
-            'role'     => 'nullable|in:user,instructor,admin',
+            'password' => 'required|string|min:8',
+            'role'     => $isAdminAction ? 'nullable|in:user,instructor,admin' : 'nullable|in:user',
         ]);
 
-        $role = $request->role ?? 'user';
+        $role = $isAdminAction ? ($request->role ?? 'user') : 'user';
 
         $user = User::create([
             'name'     => $request->name,
@@ -39,7 +40,20 @@ class AuthController extends Controller
             'password' => Hash::make($request->password),
             'role'     => $role,
         ]);
-        $user->sendEmailVerificationNotification();
+
+        if (config('lms.require_email_verification')) {
+            $user->sendEmailVerificationNotification();
+        }
+
+        if (!$isAdminAction) {
+            if (!$token = auth('api')->attempt(['email' => $request->email, 'password' => $request->password])) {
+                return response()->json([
+                    'message' => 'Registration succeeded but sign-in could not be completed.',
+                ], 500);
+            }
+
+            return $this->respondWithToken($token);
+        }
 
         return response()->json([
             'message' => 'Account created. A verification link has been sent to the user.',
