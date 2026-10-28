@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { Route, Routes, BrowserRouter as Router, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import ScrollToTop from './components/ScrollToTop';
@@ -54,13 +55,28 @@ function LMSLayout({ children }) {
     // Show sidebar persistently on all portal pages when user is logged in
     const hideSidebarPaths = ['/login', '/register', '/'];
     const showSidebar = user && !hideSidebarPaths.includes(location.pathname);
+    // Below the lg breakpoint the sidebar becomes a drawer opened from the navbar.
+    const [sidebarOpen, setSidebarOpen] = useState(false);
+
+    useEffect(() => {
+        setSidebarOpen(false);
+    }, [location.pathname]);
+
+    useEffect(() => {
+        if (!sidebarOpen) return undefined;
+        const onKeyDown = (event) => {
+            if (event.key === 'Escape') setSidebarOpen(false);
+        };
+        window.addEventListener('keydown', onKeyDown);
+        return () => window.removeEventListener('keydown', onKeyDown);
+    }, [sidebarOpen]);
 
     return (
         <div className="min-h-screen bg-[#07172d] text-slate-100 font-sans flex flex-col">
-            <Navbar />
+            <Navbar onMenuClick={showSidebar ? () => setSidebarOpen(true) : undefined} />
             <div className="flex flex-1 relative">
-                {showSidebar && <PortalSidebar />}
-                <main className="flex-1 overflow-x-hidden min-w-0 bg-[#f4f7fb] text-slate-800">{children}</main>
+                {showSidebar && <PortalSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />}
+                <main className="flex-1 overflow-x-clip min-w-0 bg-[#f4f7fb] text-slate-800">{children}</main>
             </div>
         </div>
     );

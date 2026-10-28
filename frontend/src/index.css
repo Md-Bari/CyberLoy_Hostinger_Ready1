@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300..800;1,300..800&family=JetBrains+Mono:ital,wght@0,400..700;1,400..700&family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Great+Vibes&family=Playfair+Display:ital,wght@0,400..900;1,400..700&family=Plus+Jakarta+Sans:ital,wght@0,300..800;1,300..800&family=JetBrains+Mono:ital,wght@0,400..700;1,400..700&family=Inter:wght@400;500;600;700&display=swap');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -33,85 +33,6 @@ code, pre, .font-mono {
 
 @media (prefers-reduced-motion: reduce) {
   .marquee-track { animation: none; }
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .responsive-hover-lift:hover {
-    z-index: 20;
-    transform: translateY(-0.25rem);
-    background: hsl(0 0% 100%);
-    box-shadow:
-      0 0 12px rgba(37, 99, 235, 0.4),
-      0 0 30px rgba(59, 130, 246, 0.25),
-      0 0 60px rgba(96, 165, 250, 0.14);
-  }
-
-  .responsive-hover-expand:hover {
-    z-index: 20;
-    transform: translateY(-0.25rem);
-    border-color: hsl(var(--primary) / 0.6);
-    background: hsl(0 0% 100%);
-    box-shadow:
-      0 0 12px rgba(37, 99, 235, 0.35),
-      0 0 28px rgba(0, 82, 254, 0.22),
-      0 0 55px rgba(96, 165, 250, 0.12);
-  }
-
-  .responsive-hover-expand-dark:hover {
-    z-index: 20;
-    transform: translateY(-0.25rem);
-    border-color: hsl(var(--primary) / 0.7);
-    background: hsl(0 0% 100%);
-    padding: 2rem;
-    color: #0052fe;
-    box-shadow:
-      0 0 14px rgba(0, 82, 254, 0.45),
-      0 0 32px rgba(59, 130, 246, 0.28),
-      0 0 70px rgba(96, 165, 250, 0.18);
-  }
-
-  .responsive-hover-trust:hover {
-    z-index: 20;
-    border-color: #0052fe;
-    background: hsl(0 0% 100%);
-    box-shadow:
-      0 0 12px rgba(0, 82, 254, 0.22),
-      0 0 26px rgba(0, 82, 254, 0.12);
-  }
-}
-
-@media (hover: none), (pointer: coarse) {
-  .responsive-hover-lift:active,
-  .responsive-hover-expand:active,
-  .responsive-hover-expand-dark:active,
-  .responsive-hover-trust:active {
-    transform: none;
-  }
-
-  .responsive-hover-lift:active {
-    border-color: hsl(var(--primary) / 0.35);
-    background: hsl(0 0% 100%);
-    box-shadow: 0 0 0 1px hsl(var(--primary) / 0.16);
-  }
-
-  .responsive-hover-expand:active {
-    border-color: hsl(var(--primary) / 0.45);
-    background: hsl(0 0% 100%);
-    box-shadow: 0 0 0 1px hsl(var(--primary) / 0.2);
-  }
-
-  .responsive-hover-expand-dark:active {
-    border-color: hsl(var(--primary) / 0.55);
-    background: hsl(0 0% 100%);
-    color: #0052fe;
-    box-shadow: 0 0 0 1px hsl(var(--primary) / 0.2);
-  }
-
-  .responsive-hover-trust:active {
-    border-color: #0052fe;
-    background: hsl(0 0% 100%);
-    box-shadow: 0 0 0 1px hsl(var(--primary) / 0.2);
-  }
 }
 
 @layer base {
@@ -159,5 +80,40 @@ code, pre, .font-mono {
     --input: 218 28% 20%;
     --ring: 208 92% 58%;
     --ink: 219 54% 6%;
+  }
+}
+
+/* ==========================================================================
+   CERTIFICATE PRINTING (A4: 297 x 210 mm landscape / 210 x 297 mm portrait)
+   useCertificatePrint() renders an unscaled copy into #cert-print-root and adds
+   body.cert-printing; only that copy is printed, at exactly one page.
+   ========================================================================== */
+#cert-print-root {
+  display: none;
+}
+
+@media print {
+  body.cert-printing > *:not(#cert-print-root) {
+    display: none !important;
+  }
+
+  body.cert-printing {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+  }
+
+  body.cert-printing #cert-print-root {
+    display: block !important;
+    overflow: hidden !important;
+    break-after: avoid;
+    break-inside: avoid;
+    page-break-after: avoid;
+  }
+
+  #cert-print-root,
+  #cert-print-root * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
 }

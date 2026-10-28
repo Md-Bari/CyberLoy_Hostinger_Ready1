@@ -20,6 +20,15 @@ export const getFullApiUrl = (endpoint) => {
     return `${base}${cleanEndpoint}`;
 };
 
+// Uploaded media is stored as an API-relative path (/api/media/...) so it keeps
+// working whether the API is same-origin (dev proxy) or on VITE_API_URL.
+export const resolveMediaUrl = (url) => {
+    if (!url) return '';
+    if (/^(https?:|data:|blob:)/i.test(url)) return url;
+    if (url.startsWith('/api/')) return `${getApiBaseUrl()}${url.slice(4)}`;
+    return url;
+};
+
 export const getAuthToken = () => localStorage.getItem('lms_token');
 export const setAuthToken = (token) => localStorage.setItem('lms_token', token);
 export const removeAuthToken = () => localStorage.removeItem('lms_token');
@@ -233,6 +242,23 @@ export const api = {
     deleteLessonNote: (id) => request(`/notes/${id}`, { method: 'DELETE' }),
     getCourseReviews: (courseId) => request(`/courses/${courseId}/reviews`),
     submitCourseReview: (courseId, data) => request(`/courses/${courseId}/reviews`, { method: 'POST', body: JSON.stringify(data) }),
+    uploadCourseImage: (file) => {
+        const formData = new FormData();
+        formData.append('file', file);
+        const token = getAuthToken();
+        return fetch(getFullApiUrl('/upload/course-image'), {
+            method: 'POST',
+            headers: { Accept: 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+            body: formData,
+        }).then(async (res) => {
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) {
+                const firstError = data.errors && Object.values(data.errors)[0]?.[0];
+                throw new Error(firstError || data.message || 'Image upload failed');
+            }
+            return data;
+        });
+    },
     uploadAssignment: (file) => {
         const formData = new FormData();
         formData.append('file', file);

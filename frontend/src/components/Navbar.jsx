@@ -1,9 +1,9 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Bell, BookOpen, CheckSquare, GraduationCap, LayoutGrid, LogIn, ShieldCheck, User } from 'lucide-react';
+import { Bell, BookOpen, CheckSquare, GraduationCap, LayoutGrid, LogIn, Menu, ShieldCheck, User } from 'lucide-react';
 
-export default function Navbar() {
+export default function Navbar({ onMenuClick }) {
     const { user, isAdmin } = useAuth();
     const location = useLocation();
 
@@ -22,11 +22,21 @@ export default function Navbar() {
     };
 
     return (
-        <header className="sticky top-0 z-40 border-b border-slate-800 bg-[#07172d]/95 backdrop-blur-md shadow-md">
+        <header className="sticky top-0 z-40 border-b border-slate-800 bg-[#07172d]/95 backdrop-blur-md shadow-md print:hidden">
             <div className="mx-auto flex h-16 max-w-[1600px] items-center justify-between px-4 sm:px-6 lg:px-8">
                 {/* Brand & Page Context */}
-                <div className="flex items-center gap-3">
-                    <Link to="/" className="flex items-center gap-2.5 group">
+                <div className="flex items-center gap-3 min-w-0">
+                    {onMenuClick && (
+                        <button
+                            type="button"
+                            onClick={onMenuClick}
+                            aria-label="Open menu"
+                            className="lg:hidden flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-700 bg-slate-900/80 text-slate-200 hover:bg-slate-800 hover:text-white transition"
+                        >
+                            <Menu className="h-5 w-5" />
+                        </button>
+                    )}
+                    <Link to="/" className="flex items-center gap-2.5 group shrink-0">
                         <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-tr from-cyan-500 to-teal-400 text-slate-950 font-black shadow-lg shadow-cyan-950/50 group-hover:scale-105 transition-transform">
                             <ShieldCheck className="h-5 w-5" />
                         </div>
@@ -84,16 +94,16 @@ export default function Navbar() {
                     </div>
 
                     {user ? (
-                        <div className="flex items-center gap-3 rounded-full border border-slate-700/80 bg-slate-900/90 pl-1.5 pr-3 py-1 shadow-inner">
+                        <div className="flex items-center gap-3 rounded-full border border-slate-700/80 bg-slate-900/90 p-1 sm:pl-1.5 sm:pr-3 shadow-inner">
                             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-tr from-cyan-600 to-teal-500 text-xs font-black text-slate-950 shadow-sm">
                                 {user.name?.charAt(0)?.toUpperCase() || 'U'}
                             </div>
-                            <div className="flex flex-col text-left">
+                            <div className="hidden sm:flex flex-col text-left">
                                 <span className="text-xs font-bold text-slate-200 leading-tight">
                                     {user.name || 'User'}
                                 </span>
                                 <span className="text-[10px] font-mono text-cyan-400 leading-tight uppercase">
-                                    {isAdmin ? 'Administrator' : 'Student'}
+                                    {isAdmin ? 'Administrator' : user.role === 'instructor' ? 'Instructor' : 'Student'}
                                 </span>
                             </div>
                         </div>

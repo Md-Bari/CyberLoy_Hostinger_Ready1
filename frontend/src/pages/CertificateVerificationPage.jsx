@@ -44,9 +44,9 @@ export default function CertificateVerificationPage() {
     };
 
     return (
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6 bg-[#f4f7fb] text-slate-800 min-h-screen">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6 bg-[#f4f7fb] text-slate-800 min-h-screen print:bg-transparent print:p-0 print:m-0 print:max-w-none print:min-h-0">
             {/* Header */}
-            <div className="text-center bg-white border border-slate-200/80 rounded-2xl p-8 shadow-sm">
+            <div className="text-center bg-white border border-slate-200/80 rounded-2xl p-8 shadow-sm print:hidden">
                 <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-blue-50 border border-blue-200 text-blue-700 text-xs font-semibold mb-4">
                     <ShieldCheck className="w-4 h-4 text-blue-600" />
                     <span>Public Credential Verification Portal</span>

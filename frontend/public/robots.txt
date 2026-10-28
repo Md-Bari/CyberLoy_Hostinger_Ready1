@@ -1,0 +1,13 @@
+User-agent: *
+Allow: /
+
+# Signed-in areas have no public content worth indexing.
+Disallow: /admin
+Disallow: /dashboard
+Disallow: /learn
+Disallow: /live-class
+Disallow: /my-tasks
+Disallow: /instructor
+Disallow: /certificates
+Disallow: /reset-password
+Disallow: /email-verified

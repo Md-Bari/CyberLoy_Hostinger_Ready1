@@ -25,6 +25,10 @@ use Illuminate\Support\Str;
 
 class AdminController extends Controller
 {
+    // A course poster is either an image uploaded through /upload/course-image
+    // or an external http(s) image URL.
+    private const THUMBNAIL_RULE = ['nullable', 'string', 'max:2048', 'regex:#^(https?://|/api/media/course-images/)#'];
+
     public function dashboardStats()
     {
         $totalRevenue = Payment::where('status', 'completed')->sum('amount');
@@ -348,6 +352,7 @@ class AdminController extends Controller
             'progression_mode' => 'nullable|in:sequential,open',
             'status' => 'nullable|in:draft,published,unpublished,archived',
             'instructor_id' => 'nullable|exists:users,id',
+            'thumbnail_url' => self::THUMBNAIL_RULE,
         ]);
 
         if ($request->filled('instructor_id') && User::whereKey($request->instructor_id)->where('role', 'instructor')->doesntExist()) {
@@ -359,6 +364,7 @@ class AdminController extends Controller
             'instructor_id' => $request->instructor_id,
             'slug' => Str::slug($request->title) . '-' . rand(100, 999),
             'description' => $request->description,
+            'thumbnail_url' => $request->thumbnail_url ?: null,
             'level' => $request->level ?? 'Beginner',
             'category' => $request->category ?? 'Cybersecurity',
             'duration' => $request->duration ?? '4 Weeks',
@@ -379,16 +385,28 @@ class AdminController extends Controller
     {
         $course = Course::findOrFail($id);
 
-        $request->validate(['instructor_id' => 'nullable|exists:users,id']);
+        $request->validate([
+            'instructor_id' => 'nullable|exists:users,id',
+            'thumbnail_url' => self::THUMBNAIL_RULE,
+        ]);
         if ($request->filled('instructor_id') && User::whereKey($request->instructor_id)->where('role', 'instructor')->doesntExist()) {
             return response()->json(['message' => 'The selected user is not an instructor.'], 422);
         }
 
-        $course->update($request->only([
+        $previousThumbnail = $course->thumbnail_url;
+        $data = $request->only([
             'title', 'description', 'level', 'category', 'duration',
             'price', 'progression_mode', 'status', 'prerequisites', 'learning_objectives',
             'instructor_id',
-        ]));
+        ]);
+        if ($request->has('thumbnail_url')) {
+            $data['thumbnail_url'] = $request->thumbnail_url ?: null;
+        }
+        $course->update($data);
+
+        if ($request->has('thumbnail_url') && $previousThumbnail !== $course->thumbnail_url) {
+            UploadController::deleteCourseImage($previousThumbnail);
+        }
 
         if ($request->has('status')) {
             $course->is_published = ($request->status === 'published');

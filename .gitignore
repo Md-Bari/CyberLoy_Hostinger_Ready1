@@ -32,3 +32,7 @@ backend/storage/framework/views/*
 .idea/
 .DS_Store
 Thumbs.db
+
+# User uploads (course posters, assignments, lesson resources)
+backend/storage/app/public/*
+!backend/storage/app/public/.gitignore

@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../lib/api';
-import { BookOpen, CheckCircle, Lock, Unlock, BarChart2, ArrowRight, Sparkles, Search, ChevronLeft, ChevronRight } from 'lucide-react';
+import { BookOpen, Search, ChevronLeft, ChevronRight } from 'lucide-react';
+import CourseCard, { CourseCardSkeleton } from '../components/CourseCard';
 
 export default function CourseListPage() {
     const [courses, setCourses] = useState([]);
@@ -110,8 +111,8 @@ export default function CourseListPage() {
             </div>
 
             {loading ? (
-                <div className="text-center py-20 text-slate-400 text-xs">
-                    Loading courses...
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" role="status" aria-label="Loading courses">
+                    {Array.from({ length: 3 }, (_, i) => <CourseCardSkeleton key={i} />)}
                 </div>
             ) : filteredCourses.length === 0 ? (
                 <div className="bg-white border border-slate-200/80 rounded-2xl p-12 text-center text-slate-400 text-xs shadow-sm">
@@ -120,86 +121,9 @@ export default function CourseListPage() {
             ) : (
                 <div className="space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {paginatedCourses.map((course) => {
-                            const price = Number(course.price || 49.00).toFixed(2);
-                            const currency = course.currency || 'USD';
-
-                            return (
-                                <div
-                                    key={course.id}
-                                    className="bg-white border border-slate-200/80 rounded-2xl p-6 flex flex-col justify-between hover:border-blue-400 hover:shadow-md transition group shadow-sm relative overflow-hidden"
-                                >
-                                    <div>
-                                        <div className="flex items-center justify-between gap-2 mb-3">
-                                            <span className="px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-slate-100 text-slate-700 border border-slate-200">
-                                                {course.level}
-                                            </span>
-                                            {course.is_unlocked ? (
-                                                <span className="flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-md border border-emerald-200">
-                                                    <Unlock className="w-3 h-3" /> Unlocked
-                                                </span>
-                                            ) : (
-                                                <span className="flex items-center gap-1 text-[11px] font-bold text-blue-700 bg-blue-50 px-2.5 py-0.5 rounded-md border border-blue-200 font-mono">
-                                                    ${price} {currency}
-                                                </span>
-                                            )}
-                                        </div>
-
-                                        <h3 className="text-base font-bold text-[#0f172a] group-hover:text-blue-600 transition line-clamp-2">
-                                            {course.title}
-                                        </h3>
-                                        <p className="text-xs text-slate-500 mt-2 line-clamp-3 leading-relaxed">
-                                            {course.description}
-                                        </p>
-                                    </div>
-
-                                    <div className="mt-6 pt-4 border-t border-slate-100">
-                                        {course.is_unlocked && (
-                                            <div className="mb-4">
-                                                <div className="flex justify-between text-xs mb-1 text-slate-600">
-                                                    <span>Progress</span>
-                                                    <span className="text-blue-600 font-bold">{course.progress_percentage}%</span>
-                                                </div>
-                                                <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
-                                                    <div
-                                                        className="bg-blue-600 h-full transition-all duration-500 rounded-full"
-                                                        style={{ width: `${course.progress_percentage}%` }}
-                                                    />
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        <div className="flex items-center justify-between">
-                                            <span className="text-xs text-slate-400 flex items-center gap-1">
-                                                <BarChart2 className="w-3.5 h-3.5 text-slate-400" />
-                                                {course.modules_count || 0} Modules
-                                            </span>
-
-                                            <Link
-                                                to={`/courses/${course.id}`}
-                                                className={`inline-flex items-center gap-1.5 text-xs font-bold px-3.5 py-2 rounded-xl transition shadow-sm ${
-                                                    course.is_unlocked
-                                                        ? 'bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200'
-                                                        : 'bg-[#0f172a] hover:bg-[#1e293b] text-white'
-                                                }`}
-                                            >
-                                                {course.is_unlocked ? (
-                                                    <>
-                                                        <span>Continue Course</span>
-                                                        <ArrowRight className="w-3.5 h-3.5" />
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        <Lock className="w-3.5 h-3.5 text-cyan-400" />
-                                                        <span>Unlock Course</span>
-                                                    </>
-                                                )}
-                                            </Link>
-                                        </div>
-                                    </div>
-                                </div>
-                            );
-                        })}
+                        {paginatedCourses.map((course) => (
+                            <CourseCard key={course.id} course={course} headingLevel="h2" />
+                        ))}
                     </div>
 
                     {/* Pagination Bar */}

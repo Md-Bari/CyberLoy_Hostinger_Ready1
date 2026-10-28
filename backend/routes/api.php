@@ -27,6 +27,7 @@ use App\Http\Controllers\Api\CouponController;
 */
 
 // Public Authentication & Course Catalog
+Route::get('/media/course-images/{file}', [UploadController::class, 'showCourseImage']);
 Route::post('/register', [AuthController::class, 'register'])->middleware('throttle:10,1');
 Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:10,1');
 Route::post('/refresh', [AuthController::class, 'refresh'])->middleware('throttle:10,1');
@@ -91,6 +92,7 @@ Route::middleware('auth:api')->group(function () {
     // Uploads
     Route::post('/upload/assignment', [UploadController::class, 'uploadAssignment']);
     Route::post('/upload/lesson-resource', [UploadController::class, 'uploadLessonResource']);
+    Route::post('/upload/course-image', [UploadController::class, 'uploadCourseImage']);
 
     // Learning Classroom & Video Playback Tracking
     Route::get('/learn/{courseId}/{lessonId}', [CourseController::class, 'getLesson']);

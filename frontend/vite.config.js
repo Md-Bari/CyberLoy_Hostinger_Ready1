@@ -1,6 +1,6 @@
 import path from 'node:path';
 import react from '@vitejs/plugin-react';
-import basicSsl from '@vitejs/plugin-basic-ssl';
+import mkcert from 'vite-plugin-mkcert';
 import { createLogger, defineConfig } from 'vite';
 import inlineEditPlugin from './plugins/visual-editor/vite-plugin-react-inline-editor.js';
 import editModeDevPlugin from './plugins/visual-editor/vite-plugin-edit-mode.js';
@@ -375,8 +375,9 @@ export default defineConfig({
 	},
 	customLogger: logger,
 	plugins: [
-		// Self-signed HTTPS so LAN clients get a secure context (camera/mic for live classes).
-		...(isDev ? [basicSsl()] : []),
+		// HTTPS with a locally trusted cert (mkcert) so the browser trusts it and LAN
+		// clients get a secure context for camera/mic in live classes.
+		...(isDev ? [mkcert()] : []),
 		...(isDev ? [inlineEditPlugin(), editModeDevPlugin(), iframeRouteRestorationPlugin(), sitePagesPlugin(), pocketbaseAuthPlugin(), sessionJournalPlugin()] : []),
 		react(),
 		addTransformIndexHtml

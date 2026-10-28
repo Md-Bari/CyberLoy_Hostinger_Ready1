@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { api } from '../lib/api';
+import { api, resolveMediaUrl } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import {
     BookOpen, CheckCircle2, Lock, Unlock, Play, ArrowLeft, ArrowRight,
@@ -124,7 +124,19 @@ export default function CourseDetailPage() {
             )}
 
             {/* Course Header Banner (Clean White Card) */}
-            <div className="bg-white border border-slate-200/80 rounded-2xl p-6 sm:p-8 shadow-sm">
+            <div className="bg-white border border-slate-200/80 rounded-2xl shadow-sm overflow-hidden">
+                {course.thumbnail_url && (
+                    <div className="relative aspect-[21/9] max-h-80 w-full overflow-hidden bg-slate-200">
+                        <img
+                            src={resolveMediaUrl(course.thumbnail_url)}
+                            alt={`${course.title} course poster`}
+                            className="h-full w-full object-cover"
+                            onError={(e) => { e.currentTarget.parentElement.style.display = 'none'; }}
+                        />
+                        <div aria-hidden="true" className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
+                    </div>
+                )}
+                <div className="p-6 sm:p-8">
                 <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-8">
                     <div className="space-y-3 max-w-2xl">
                         <div className="flex flex-wrap items-center gap-2">
@@ -222,6 +234,7 @@ export default function CourseDetailPage() {
                             </div>
                         )}
                     </div>
+                </div>
                 </div>
             </div>
 

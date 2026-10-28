@@ -21,13 +21,14 @@ import {
     Layers,
     ListTodo,
     LayoutDashboard,
-    BarChart
+    BarChart,
+    X
 } from 'lucide-react';
 
 import { useAuth } from '../context/AuthContext';
 import EmergencySupportModal from './EmergencySupportModal';
 
-export default function PortalSidebar({ activeTab, setActiveTab }) {
+export default function PortalSidebar({ activeTab, setActiveTab, open = false, onClose }) {
     const { user, logout, isAdmin } = useAuth();
     const navigate = useNavigate();
     const location = useLocation();
@@ -192,9 +193,22 @@ export default function PortalSidebar({ activeTab, setActiveTab }) {
     };
 
     return (
-        <aside className="sticky top-16 self-start h-[calc(100vh-4rem)] w-72 shrink-0 bg-[#07172d] border-r border-slate-800 flex flex-col text-slate-100 select-none shadow-2xl z-30">
+        <>
+        {/* Backdrop for the drawer on narrow screens */}
+        <div
+            aria-hidden="true"
+            onClick={onClose}
+            className={`fixed inset-0 z-40 bg-slate-950/60 backdrop-blur-sm transition-opacity lg:hidden print:hidden ${
+                open ? 'opacity-100' : 'pointer-events-none opacity-0'
+            }`}
+        />
+        <aside
+            className={`fixed inset-y-0 left-0 z-50 h-full w-72 max-w-[85vw] transform transition-transform duration-200 ease-out ${
+                open ? 'translate-x-0' : '-translate-x-full'
+            } lg:sticky lg:top-16 lg:z-30 lg:h-[calc(100vh-4rem)] lg:max-w-none lg:self-start lg:transform-none lg:transition-none shrink-0 bg-[#07172d] border-r border-slate-800 flex flex-col text-slate-100 select-none shadow-2xl print:hidden`}
+        >
             {/* Header Brand */}
-            <div className="px-5 py-5 border-b border-slate-800 bg-[#081b35]">
+            <div className="px-5 py-5 border-b border-slate-800 bg-[#081b35] flex items-center justify-between gap-2">
                 <Link to={isAdminUser ? '/admin' : '/courses'} className="flex items-center gap-3 group">
                     <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-tr from-cyan-600 to-teal-400 text-slate-950 shadow-md shadow-cyan-950/50 group-hover:scale-105 transition-transform">
                         <ShieldCheck className="h-5 w-5" />
@@ -211,6 +225,14 @@ export default function PortalSidebar({ activeTab, setActiveTab }) {
                         </div>
                     </div>
                 </Link>
+                <button
+                    type="button"
+                    onClick={onClose}
+                    aria-label="Close menu"
+                    className="lg:hidden flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white"
+                >
+                    <X className="h-4 w-4" />
+                </button>
             </div>
 
             {/* Navigation Links */}
@@ -318,10 +340,12 @@ export default function PortalSidebar({ activeTab, setActiveTab }) {
                 </button>
             </div>
 
-            <EmergencySupportModal
-                isOpen={showEmergencyModal}
-                onClose={() => setShowEmergencyModal(false)}
-            />
         </aside>
+        {/* Rendered outside the aside: its slide transform would otherwise trap this fixed modal. */}
+        <EmergencySupportModal
+            isOpen={showEmergencyModal}
+            onClose={() => setShowEmergencyModal(false)}
+        />
+        </>
     );
 }

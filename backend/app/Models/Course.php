@@ -14,6 +14,7 @@ class Course extends Model
         'instructor_id',
         'slug',
         'description',
+        'thumbnail_url',
         'price',
         'currency',
         'requires_payment',

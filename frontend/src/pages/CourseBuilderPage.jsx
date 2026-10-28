@@ -6,6 +6,7 @@ import {
     CheckCircle, X, Play, ArrowLeft, Sparkles, Layers, Video
 } from 'lucide-react';
 import { buildLiveClassLink } from '../lib/liveClass';
+import CourseImageField from '../components/CourseImageField';
 
 const LESSON_KINDS = [
     { id: 'video', label: 'Video Lesson', Icon: Video, description: 'A YouTube video students must watch fully. You can add an optional quiz after it.' },
@@ -31,6 +32,7 @@ export default function CourseBuilderPage() {
     const [editCourseForm, setEditCourseForm] = useState({
         title: '',
         description: '',
+        thumbnail_url: '',
         level: 'Beginner',
         category: 'Cybersecurity',
         duration: '4 Weeks',
@@ -67,6 +69,7 @@ export default function CourseBuilderPage() {
     const [showNewCourseModal, setShowNewCourseModal] = useState(false);
     const [newTitle, setNewTitle] = useState('');
     const [newDescription, setNewDescription] = useState('');
+    const [newThumbnail, setNewThumbnail] = useState('');
     const [newLevel, setNewLevel] = useState('Beginner');
     const [newCategory, setNewCategory] = useState('Cybersecurity');
     const [newDuration, setNewDuration] = useState('4 Weeks');
@@ -136,6 +139,7 @@ export default function CourseBuilderPage() {
             const res = await api.createCourse({
                 title: newTitle,
                 description: newDescription,
+                thumbnail_url: newThumbnail || null,
                 level: newLevel,
                 category: newCategory,
                 duration: newDuration,
@@ -149,6 +153,7 @@ export default function CourseBuilderPage() {
             setShowNewCourseModal(false);
             setNewTitle('');
             setNewDescription('');
+            setNewThumbnail('');
             setNewPrice('49.00');
             setNewInstructorId('');
 
@@ -207,6 +212,7 @@ export default function CourseBuilderPage() {
         setEditCourseForm({
             title: course.title,
             description: course.description || '',
+            thumbnail_url: course.thumbnail_url || '',
             level: course.level || 'Beginner',
             category: course.category || 'Cybersecurity',
             duration: course.duration || '4 Weeks',
@@ -225,6 +231,7 @@ export default function CourseBuilderPage() {
             await api.updateCourse(editingCourseModal.id, {
                 title: editCourseForm.title,
                 description: editCourseForm.description,
+                thumbnail_url: editCourseForm.thumbnail_url || null,
                 level: editCourseForm.level,
                 category: editCourseForm.category,
                 duration: editCourseForm.duration,
@@ -994,6 +1001,8 @@ export default function CourseBuilderPage() {
                                 />
                             </div>
 
+                            <CourseImageField value={newThumbnail} onChange={setNewThumbnail} />
+
                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                                 <div>
                                     <label className="text-xs font-semibold text-slate-700 block mb-1">Difficulty Level</label>
@@ -1128,6 +1137,11 @@ export default function CourseBuilderPage() {
                                     className="w-full bg-white border border-slate-200 rounded-xl p-3 text-xs text-slate-800 focus:outline-none focus:border-blue-500 shadow-sm"
                                 />
                             </div>
+
+                            <CourseImageField
+                                value={editCourseForm.thumbnail_url}
+                                onChange={(url) => setEditCourseForm((current) => ({ ...current, thumbnail_url: url }))}
+                            />
 
                             <div>
                                 <label htmlFor="edit-course-instructor" className="text-xs font-semibold text-slate-700 block mb-1">Assigned instructor</label>
